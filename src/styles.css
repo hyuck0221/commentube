@@ -157,13 +157,15 @@ button {
 }
 
 .hero-grid.centered {
-  grid-template-columns: minmax(620px, 860px);
+  grid-template-columns: 860px 470px;
   justify-content: center;
-  width: min(960px, 100%);
+  width: min(1372px, 100%);
+  gap: 0;
 }
 
 .hero-grid.centered .hero-copy {
   text-align: center;
+  transform: translateX(256px);
 }
 
 .hero-grid.centered .hero-copy p,
@@ -178,11 +180,12 @@ button {
 }
 
 .hero-grid.centered .preview-panel {
-  display: none;
+  visibility: hidden;
 }
 
 .hero-copy {
   padding-top: 24px;
+  max-width: 860px;
   transform-origin: center left;
   transition:
     transform 620ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -191,11 +194,11 @@ button {
 }
 
 .hero-grid.centered .hero-copy {
-  transform: translateX(0);
+  transform: translateX(256px);
 }
 
 .hero-grid.has-preview .hero-copy {
-  transform: translateX(-12px);
+  transform: translateX(0);
 }
 
 .eyebrow {
@@ -219,7 +222,8 @@ p {
 }
 
 h1 {
-  max-width: 850px;
+  width: 850px;
+  max-width: 100%;
   margin: 22px 0 18px;
   font-size: 72px;
   line-height: 0.96;
@@ -282,8 +286,12 @@ h1 {
 .game-tile button:hover,
 .result-strip button:hover,
 .result-modal button:hover {
-  transform: translateY(-2px) scale(1.015);
+  transform: translateY(-2px);
   filter: brightness(1.06);
+}
+
+.link-form button:hover {
+  transform: none;
 }
 
 button:disabled {
@@ -294,6 +302,8 @@ button:disabled {
 .error-banner {
   width: min(760px, 100%);
   margin-top: 14px;
+  margin-left: auto;
+  margin-right: auto;
   padding: 14px 16px;
   border: 1px solid rgba(255, 90, 100, 0.42);
   border-radius: 8px;
@@ -824,7 +834,7 @@ button:disabled {
     background 180ms ease;
 }
 
-.comment-choice:hover:not(:disabled) {
+.comment-choice:hover {
   transform: translateY(-4px);
   border-color: rgba(255, 0, 51, 0.62);
   box-shadow: 0 24px 70px rgba(255, 0, 51, 0.16);
@@ -852,15 +862,107 @@ button:disabled {
 }
 
 .comment-choice p {
-  display: -webkit-box;
-  overflow: hidden;
+  display: block;
+  overflow-y: auto;
   min-height: 92px;
+  max-height: min(20vh, 170px);
   margin-bottom: 0;
+  padding-right: 8px;
   font-size: clamp(21px, 3vh, 25px);
   font-weight: 850;
   line-height: 1.42;
-  -webkit-line-clamp: 5;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+  scrollbar-width: thin;
+}
+
+.comment-choice p::-webkit-scrollbar {
+  width: 6px;
+}
+
+.comment-choice p::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.comment-choice p::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.timestamp-link {
+  display: inline;
+  border: 0;
+  border-radius: 5px;
+  color: #fff;
+  background: rgba(255, 0, 51, 0.82);
+  padding: 1px 5px 2px;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 8px 20px rgba(255, 0, 51, 0.22);
+}
+
+.timestamp-link:hover {
+  background: var(--brand);
+}
+
+.timestamp-viewer {
+  position: fixed;
+  top: 18px;
+  left: 50%;
+  z-index: 18;
+  width: min(760px, calc(100vw - 84px));
+  transform: translateX(-50%);
+  animation: videoFloatIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.timestamp-viewer.closing {
+  animation: videoFloatOut 220ms ease both;
+}
+
+.timestamp-player {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(10, 12, 18, 0.96);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.56);
+  backdrop-filter: blur(18px);
+}
+
+.timestamp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 12px 10px 14px;
+}
+
+.timestamp-head span,
+.timestamp-head strong {
+  display: block;
+}
+
+.timestamp-head span {
+  color: var(--aqua);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.timestamp-head strong {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 3px;
+  color: #fff;
+  font-size: 15px;
+  line-height: 1.25;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
+}
+
+.timestamp-player iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
 }
 
 .comment-meta {
@@ -1134,10 +1236,10 @@ input[type="checkbox"] {
 
 @keyframes heroShiftLeft {
   from {
-    transform: translateX(110px) scale(1.02);
+    transform: translateX(256px);
   }
   to {
-    transform: translateX(-12px) scale(1);
+    transform: translateX(0);
   }
 }
 
@@ -1166,6 +1268,28 @@ input[type="checkbox"] {
 @keyframes winnerFlash {
   35% {
     transform: scale(1.025);
+  }
+}
+
+@keyframes videoFloatIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -26px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@keyframes videoFloatOut {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -18px) scale(0.97);
   }
 }
 

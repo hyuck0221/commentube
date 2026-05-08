@@ -14,7 +14,6 @@ import {
   Trophy,
   X
 } from "lucide-react";
-import logoUrl from "../logo.png";
 
 const dictionaries = {
   ko: {
@@ -208,6 +207,40 @@ function compactNumber(value) {
     notation: "compact",
     maximumFractionDigits: 1
   }).format(Number(value || 0));
+}
+
+function timestampToSeconds(value) {
+  const parts = value.split(":").map(Number);
+  if (parts.some((part) => Number.isNaN(part))) return null;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return null;
+}
+
+function splitTimestamps(text = "") {
+  const pattern = /\b(?:(\d{1,2}:)?[0-5]?\d:[0-5]\d)\b/g;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: "text", value: text.slice(lastIndex, match.index) });
+    }
+    const seconds = timestampToSeconds(match[0]);
+    if (seconds !== null) {
+      parts.push({ type: "timestamp", value: match[0], seconds });
+    } else {
+      parts.push({ type: "text", value: match[0] });
+    }
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({ type: "text", value: text.slice(lastIndex) });
+  }
+
+  return parts;
 }
 
 function looksLikeYoutubeUrl(value = "") {
@@ -605,7 +638,7 @@ function Topbar({ t, onOpenSettings, onBrandClick, compact = false }) {
     <header className={`topbar ${compact ? "compact" : ""}`}>
       <button className="brand-mark" onClick={onBrandClick} type="button">
         <span className="brand-icon">
-          <img src={logoUrl} alt="" />
+          <img src="/logo.png" alt="" />
         </span>
         <span>{t.brand}</span>
       </button>
@@ -693,9 +726,11 @@ function Stat({ label, value }) {
 function BattleArena({ t, video, round, roundIndex, total, score, selected, result, maskAuthors, onChoose, onNext }) {
   const revealed = Boolean(result);
   const winner = round.answer;
+  const [activeTimestamp, setActiveTimestamp] = useState(null);
 
   return (
     <section className={`battle-arena ${revealed ? "revealed" : ""}`}>
+      <TimestampViewer video={video} timestamp={activeTimestamp} onClose={() => setActiveTimestamp(null)} />
       <div className="battle-header">
         <div>
           <span className="round-chip">
@@ -723,6 +758,7 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
           maskAuthors={maskAuthors}
           t={t}
           onChoose={onChoose}
+          onOpenTimestamp={setActiveTimestamp}
         />
         <div className="versus" aria-hidden="true">
           <span>VS</span>
@@ -736,6 +772,7 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
           maskAuthors={maskAuthors}
           t={t}
           onChoose={onChoose}
+          onOpenTimestamp={setActiveTimestamp}
         />
       </div>
 
@@ -755,18 +792,63 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
   );
 }
 
-function CommentChoice({ side, comment, selected, winner, revealed, maskAuthors, t, onChoose }) {
+function TimestampViewer({ video, timestamp, onClose }) {
+  const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    setClosing(false);
+  }, [timestamp?.seconds]);
+
+  if (!timestamp) return null;
+
+  function closeWithAnimation() {
+    setClosing(true);
+    window.setTimeout(onClose, 220);
+  }
+
+  return (
+    <div className={`timestamp-viewer ${closing ? "closing" : ""}`}>
+      <div className="timestamp-player">
+        <div className="timestamp-head">
+          <div>
+            <span>{timestamp.label}</span>
+            <strong>{video.title}</strong>
+          </div>
+          <button className="icon-button subtle" onClick={closeWithAnimation} aria-label="Close video">
+            <X size={18} />
+          </button>
+        </div>
+        <iframe
+          title={`${video.title} ${timestamp.label}`}
+          src={`https://www.youtube.com/embed/${video.videoId}?start=${timestamp.seconds}&autoplay=1&rel=0`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+    </div>
+  );
+}
+
+function CommentChoice({ side, comment, selected, winner, revealed, maskAuthors, t, onChoose, onOpenTimestamp }) {
   const isSelected = selected === side;
   const isWinner = winner === side;
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={selected ? -1 : 0}
       className={`comment-choice ${isSelected ? "selected" : ""} ${revealed && isWinner ? "winner" : ""} ${
         revealed && isSelected && !isWinner ? "loser" : ""
       }`}
       onClick={() => onChoose(side)}
-      disabled={Boolean(selected)}
+      onKeyDown={(event) => {
+        if (selected) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onChoose(side);
+        }
+      }}
     >
-      <p>{comment.text}</p>
+      <CommentText text={comment.text} onOpenTimestamp={onOpenTimestamp} />
       <div className="comment-meta">
         <span>{maskAuthors ? comment.maskedAuthor : comment.author}</span>
         {revealed ? (
@@ -781,7 +863,31 @@ function CommentChoice({ side, comment, selected, winner, revealed, maskAuthors,
           </span>
         )}
       </div>
-    </button>
+    </div>
+  );
+}
+
+function CommentText({ text, onOpenTimestamp }) {
+  return (
+    <p>
+      {splitTimestamps(text).map((part, index) => {
+        if (part.type === "timestamp") {
+          return (
+            <button
+              className="timestamp-link"
+              key={`${part.value}-${index}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenTimestamp({ label: part.value, seconds: part.seconds });
+              }}
+            >
+              {part.value}
+            </button>
+          );
+        }
+        return <span key={`${part.value}-${index}`}>{part.value}</span>;
+      })}
+    </p>
   );
 }
 
