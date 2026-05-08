@@ -2,6 +2,7 @@ import {
   ApiError,
   extractVideoId,
   getCache,
+  getQueryParam,
   handleError,
   sendJson,
   setCache,
@@ -77,7 +78,7 @@ function buildBattleRounds(comments) {
     .filter((comment) => comment.likeCount > 0)
     .sort((a, b) => b.likeCount - a.likeCount);
 
-  const strongPool = eligible.slice(0, Math.min(eligible.length, 260));
+  const strongPool = bucketShuffleByLikes(eligible.slice(0, Math.min(eligible.length, 520)));
   const pairs = [];
   const used = new Set();
 
@@ -87,17 +88,28 @@ function buildBattleRounds(comments) {
 
     let bestIndex = -1;
     let bestGap = Number.POSITIVE_INFINITY;
-    const maxWindow = Math.min(strongPool.length, i + 45);
+    const candidates = [];
 
-    for (let j = i + 1; j < maxWindow; j += 1) {
+    for (let j = i + 1; j < strongPool.length; j += 1) {
       const right = strongPool[j];
       if (used.has(right.id) || right.id === left.id) continue;
       const maxLikes = Math.max(left.likeCount, right.likeCount);
       const gapRatio = Math.abs(left.likeCount - right.likeCount) / Math.max(maxLikes, 1);
-      if (gapRatio < bestGap && left.likeCount !== right.likeCount) {
+
+      if (left.likeCount !== right.likeCount && gapRatio <= 0.72) {
+        candidates.push({ index: j, gapRatio });
+      }
+
+      if (left.likeCount !== right.likeCount && gapRatio < bestGap) {
         bestGap = gapRatio;
         bestIndex = j;
       }
+    }
+
+    if (candidates.length) {
+      candidates.sort((a, b) => a.gapRatio - b.gapRatio);
+      const slice = candidates.slice(0, Math.min(candidates.length, 12));
+      bestIndex = slice[Math.floor(Math.random() * slice.length)].index;
     }
 
     if (bestIndex >= 0) {
@@ -108,7 +120,7 @@ function buildBattleRounds(comments) {
     }
   }
 
-  return pairs.slice(0, 40).map(([left, right], index) => ({
+  return pairs.map(([left, right], index) => ({
     id: `round-${index + 1}`,
     left,
     right,
@@ -116,13 +128,39 @@ function buildBattleRounds(comments) {
   }));
 }
 
+function bucketShuffleByLikes(comments) {
+  const bucketSize = 32;
+  const buckets = [];
+
+  for (let i = 0; i < comments.length; i += bucketSize) {
+    buckets.push(shuffle(comments.slice(i, i + bucketSize)));
+  }
+
+  return buckets.flatMap((bucket, bucketIndex) => {
+    if (bucketIndex < 2) return bucket;
+    const priorDrift = Math.random() < 0.18 ? buckets[Math.max(bucketIndex - 1, 0)].slice(0, 2) : [];
+    return shuffle([...bucket, ...priorDrift]).filter((comment, index, list) => {
+      return list.findIndex((item) => item.id === comment.id) === index;
+    });
+  });
+}
+
+function shuffle(items) {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 export default async function handler(req, res) {
   try {
-    const rawUrl = req.query?.url || req.query?.videoId || "";
+    const rawUrl = getQueryParam(req, "url") || getQueryParam(req, "videoId");
     const videoId = extractVideoId(rawUrl);
     if (!videoId) throw new ApiError(400, "올바른 YouTube 영상 링크를 입력해주세요.");
 
-    const target = Math.min(Number(req.query?.target || DEFAULT_TARGET), MAX_TARGET);
+    const target = Math.min(Number(getQueryParam(req, "target") || DEFAULT_TARGET), MAX_TARGET);
     const cacheKey = `comments:${videoId}:${target}`;
     const cached = getCache(cacheKey);
     if (cached) return sendJson(res, 200, { ...cached, cached: true });

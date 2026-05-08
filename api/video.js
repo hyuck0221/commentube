@@ -3,6 +3,7 @@ import {
   extractVideoId,
   formatDuration,
   getCache,
+  getQueryParam,
   handleError,
   secondsFromDuration,
   sendJson,
@@ -12,7 +13,7 @@ import {
 
 export default async function handler(req, res) {
   try {
-    const rawUrl = req.query?.url || req.query?.videoId || "";
+    const rawUrl = getQueryParam(req, "url") || getQueryParam(req, "videoId");
     const videoId = extractVideoId(rawUrl);
     if (!videoId) throw new ApiError(400, "올바른 YouTube 영상 링크를 입력해주세요.");
 

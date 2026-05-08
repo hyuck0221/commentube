@@ -1,3 +1,5 @@
+import fs from "node:fs";
+
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const YOUTUBE_BASE = "https://www.googleapis.com/youtube/v3";
 
@@ -16,10 +18,34 @@ export class ApiError extends Error {
   }
 }
 
+function readLocalEnvValue(name) {
+  if (process.env.VERCEL_ENV === "production") return "";
+
+  try {
+    for (const file of [".env.local", ".env"]) {
+      const path = `${process.cwd()}/${file}`;
+      if (!fs.existsSync(path)) continue;
+
+      const lines = fs.readFileSync(path, "utf8").split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+        if (!match || match[1] !== name) continue;
+        return match[2].replace(/^["']|["']$/g, "").trim();
+      }
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 export function getApiKeys() {
   const keys = [
-    ...(process.env.YOUTUBE_API_KEYS || "").split(","),
-    process.env.YOUTUBE_API_KEY || ""
+    ...(process.env.YOUTUBE_API_KEYS || readLocalEnvValue("YOUTUBE_API_KEYS") || "").split(","),
+    process.env.YOUTUBE_API_KEY || readLocalEnvValue("YOUTUBE_API_KEY") || ""
   ]
     .map((key) => key.trim())
     .filter(Boolean);
@@ -53,6 +79,18 @@ export function extractVideoId(input = "") {
   }
 
   return null;
+}
+
+export function getQueryParam(req, name) {
+  if (req.query?.[name]) return req.query[name];
+
+  try {
+    const host = req.headers?.host || "localhost";
+    const url = new URL(req.url || "", `http://${host}`);
+    return url.searchParams.get(name) || "";
+  } catch {
+    return "";
+  }
 }
 
 export function getCache(key) {

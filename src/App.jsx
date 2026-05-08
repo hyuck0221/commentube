@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Eye,
   EyeOff,
-  Gamepad2,
   Globe2,
   Loader2,
   Play,
@@ -15,6 +14,7 @@ import {
   Trophy,
   X
 } from "lucide-react";
+import logoUrl from "../logo.png";
 
 const dictionaries = {
   ko: {
@@ -34,7 +34,13 @@ const dictionaries = {
     normal: "보통",
     dramatic: "극적",
     close: "닫기",
+    leaveGameTitle: "게임을 나가시겠습니까?",
+    leaveGameCopy: "현재 진행 중인 라운드와 점수는 초기화됩니다.",
+    stay: "계속하기",
+    leave: "나가기",
     videoInfo: "영상 정보",
+    waitingVideo: "분석할 영상을 기다리는 중",
+    waitingHint: "링크를 넣으면 이 영역에 썸네일과 핵심 지표가 표시됩니다.",
     comments: "댓글",
     duration: "영상 길이",
     views: "조회수",
@@ -44,6 +50,10 @@ const dictionaries = {
     comingSoon: "추후 공개",
     startBattle: "댓글 읽고 시작",
     loadingComments: "댓글 후보 수집 중",
+    loadingTitle: "댓글 배틀 준비 중",
+    loadingCopy: "좋아요가 있는 댓글을 모으고, 비슷한 점수대의 대결 후보를 만들고 있어요.",
+    preparingBattle: "라운드 구성",
+    correctCount: "정답",
     battleTitle: "댓글 배틀",
     battleDescription: "둘 중 좋아요 수가 더 높은 댓글을 고르세요. 틀리면 종료됩니다.",
     realCommentTitle: "진짜 댓글 찾기",
@@ -83,7 +93,13 @@ const dictionaries = {
     normal: "Normal",
     dramatic: "Dramatic",
     close: "Close",
+    leaveGameTitle: "Leave the game?",
+    leaveGameCopy: "Your current round and streak will be reset.",
+    stay: "Keep playing",
+    leave: "Leave",
     videoInfo: "Video info",
+    waitingVideo: "Waiting for a video",
+    waitingHint: "Paste a link to preview the thumbnail and core stats here.",
     comments: "Comments",
     duration: "Duration",
     views: "Views",
@@ -93,6 +109,10 @@ const dictionaries = {
     comingSoon: "Coming soon",
     startBattle: "Load comments",
     loadingComments: "Collecting comment candidates",
+    loadingTitle: "Preparing Comment Battle",
+    loadingCopy: "Collecting liked comments and matching close battle candidates.",
+    preparingBattle: "Building rounds",
+    correctCount: "Correct",
     battleTitle: "Comment Battle",
     battleDescription: "Pick the comment with more likes. One miss ends the run.",
     realCommentTitle: "Find the Real Comment",
@@ -132,7 +152,13 @@ const dictionaries = {
     normal: "普通",
     dramatic: "演出あり",
     close: "閉じる",
+    leaveGameTitle: "ゲームを終了しますか？",
+    leaveGameCopy: "現在のラウンドとスコアはリセットされます。",
+    stay: "続ける",
+    leave: "終了",
     videoInfo: "動画情報",
+    waitingVideo: "動画を待機中",
+    waitingHint: "リンクを入力すると、サムネイルと主要データがここに表示されます。",
     comments: "コメント",
     duration: "長さ",
     views: "再生数",
@@ -142,6 +168,10 @@ const dictionaries = {
     comingSoon: "近日公開",
     startBattle: "コメントを読み込む",
     loadingComments: "コメント候補を収集中",
+    loadingTitle: "コメントバトル準備中",
+    loadingCopy: "高評価のあるコメントを集め、近いスコアの対戦候補を作っています。",
+    preparingBattle: "ラウンド生成",
+    correctCount: "正解",
     battleTitle: "コメントバトル",
     battleDescription: "高評価が多いコメントを選びます。外すと終了です。",
     realCommentTitle: "本物コメント探し",
@@ -173,6 +203,42 @@ function number(value) {
   return new Intl.NumberFormat().format(Number(value || 0));
 }
 
+function compactNumber(value) {
+  return new Intl.NumberFormat(undefined, {
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(Number(value || 0));
+}
+
+function looksLikeYoutubeUrl(value = "") {
+  return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\//i.test(value.trim());
+}
+
+function shuffleRounds(rounds) {
+  const sorted = [...rounds].sort((a, b) => {
+    const aScore = Math.max(a.left.likeCount, a.right.likeCount);
+    const bScore = Math.max(b.left.likeCount, b.right.likeCount);
+    return bScore - aScore;
+  });
+  const bucketSize = 18;
+  const buckets = [];
+
+  for (let i = 0; i < sorted.length; i += bucketSize) {
+    buckets.push(shuffle(sorted.slice(i, i + bucketSize)));
+  }
+
+  return buckets.flat().map((round, index) => ({ ...round, id: `round-${index + 1}` }));
+}
+
+function shuffle(items) {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
 function initialLanguage() {
   const saved = localStorage.getItem("commentube-language");
   if (saved && dictionaries[saved]) return saved;
@@ -197,16 +263,57 @@ function App() {
   const [selected, setSelected] = useState(null);
   const [result, setResult] = useState(null);
   const [commentsMeta, setCommentsMeta] = useState(null);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [previewEntering, setPreviewEntering] = useState(false);
 
   useEffect(() => {
     localStorage.setItem("commentube-language", language);
   }, [language]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrateFromClipboard() {
+      if (!navigator.clipboard?.readText) return;
+
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!cancelled && !url.trim() && looksLikeYoutubeUrl(text)) {
+          setUrl(text.trim());
+        }
+      } catch {
+        // Clipboard permission is optional; the input remains manual when blocked.
+      }
+    }
+
+    hydrateFromClipboard();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const currentRound = rounds[roundIndex];
+  const showPreviewPanel = Boolean(video || loading);
 
   const canBattle = useMemo(() => {
     return Boolean(video?.games?.find((game) => game.id === "comment-battle")?.available);
   }, [video]);
+
+  useEffect(() => {
+    if (phase !== "loading") return undefined;
+
+    setLoadingProgress(4);
+    const timer = window.setInterval(() => {
+      setLoadingProgress((value) => {
+        if (value >= 92) return value;
+        const step = value < 36 ? 8 : value < 72 ? 5 : 2;
+        return Math.min(value + step, 92);
+      });
+    }, 360);
+
+    return () => window.clearInterval(timer);
+  }, [phase]);
 
   async function requestJson(endpoint) {
     const response = await fetch(endpoint);
@@ -227,6 +334,7 @@ function App() {
     setVideo(null);
     setRounds([]);
     setPhase("idle");
+    setPreviewEntering(true);
 
     try {
       const payload = await requestJson(`/api/video?url=${encodeURIComponent(url.trim())}`);
@@ -235,6 +343,7 @@ function App() {
       setError(err.message || t.apiError);
     } finally {
       setLoading(false);
+      window.setTimeout(() => setPreviewEntering(false), 520);
     }
   }
 
@@ -243,17 +352,19 @@ function App() {
     setLoading(true);
     setError("");
     setPhase("loading");
+    setLoadingProgress(2);
     setCommentsMeta(null);
 
     try {
       const payload = await requestJson(`/api/comments?videoId=${encodeURIComponent(video.videoId)}&target=520`);
+      setLoadingProgress(100);
       setRounds(payload.rounds || []);
       setCommentsMeta(payload);
       setRoundIndex(0);
       setScore(0);
       setSelected(null);
       setResult(null);
-      setPhase("battle");
+      window.setTimeout(() => setPhase("battle"), 450);
     } catch (err) {
       setError(err.message || t.apiError);
       setPhase("idle");
@@ -284,6 +395,7 @@ function App() {
   }
 
   function resetGame() {
+    setRounds((value) => shuffleRounds(value));
     setRoundIndex(0);
     setScore(0);
     setSelected(null);
@@ -291,22 +403,102 @@ function App() {
     setPhase(rounds.length ? "battle" : "idle");
   }
 
+  function goHome() {
+    setPhase("idle");
+    setRounds([]);
+    setRoundIndex(0);
+    setScore(0);
+    setSelected(null);
+    setResult(null);
+    setLeaveConfirmOpen(false);
+  }
+
+  function handleBrandClick() {
+    if (phase === "battle" || phase === "gameover" || phase === "loading") {
+      setLeaveConfirmOpen(true);
+      return;
+    }
+    goHome();
+  }
+
+  if (phase === "loading") {
+    return (
+      <main className="app-shell loading-shell">
+        <div className="speed-lines" />
+        <Topbar t={t} onOpenSettings={() => setSettingsOpen(true)} onBrandClick={handleBrandClick} />
+        <LoadingScreen t={t} video={video} progress={loadingProgress} />
+        {leaveConfirmOpen ? <LeaveConfirm t={t} onCancel={() => setLeaveConfirmOpen(false)} onConfirm={goHome} /> : null}
+        {settingsOpen ? (
+          <SettingsDialog
+            t={t}
+            language={language}
+            setLanguage={setLanguage}
+            maskAuthors={maskAuthors}
+            setMaskAuthors={setMaskAuthors}
+            revealSpeed={revealSpeed}
+            setRevealSpeed={setRevealSpeed}
+            onClose={() => setSettingsOpen(false)}
+          />
+        ) : null}
+      </main>
+    );
+  }
+
+  if ((phase === "battle" || phase === "gameover") && currentRound) {
+    return (
+      <main className="app-shell game-shell">
+        <div className="speed-lines" />
+        <Topbar t={t} onOpenSettings={() => setSettingsOpen(true)} onBrandClick={handleBrandClick} compact />
+        <BattleArena
+          t={t}
+          video={video}
+          round={currentRound}
+          roundIndex={roundIndex}
+          total={rounds.length}
+          score={score}
+          selected={selected}
+          result={result}
+          maskAuthors={maskAuthors}
+          onChoose={choose}
+          onNext={nextRound}
+        />
+        {phase === "gameover" ? (
+          <div className="modal-backdrop show">
+            <div className="result-modal">
+              <div className="result-badge">{t.gameOver}</div>
+              <h2>
+                {t.finalScore} {score}
+              </h2>
+              <button onClick={resetGame}>
+                <RotateCcw size={18} />
+                {t.playAgain}
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {leaveConfirmOpen ? <LeaveConfirm t={t} onCancel={() => setLeaveConfirmOpen(false)} onConfirm={goHome} /> : null}
+        {settingsOpen ? (
+          <SettingsDialog
+            t={t}
+            language={language}
+            setLanguage={setLanguage}
+            maskAuthors={maskAuthors}
+            setMaskAuthors={setMaskAuthors}
+            revealSpeed={revealSpeed}
+            setRevealSpeed={setRevealSpeed}
+            onClose={() => setSettingsOpen(false)}
+          />
+        ) : null}
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       <div className="speed-lines" />
-      <header className="topbar">
-        <div className="brand-mark">
-          <span className="brand-icon">
-            <Gamepad2 size={22} />
-          </span>
-          <span>{t.brand}</span>
-        </div>
-        <button className="icon-button" onClick={() => setSettingsOpen(true)} aria-label={t.settings}>
-          <Settings size={21} />
-        </button>
-      </header>
+      <Topbar t={t} onOpenSettings={() => setSettingsOpen(true)} onBrandClick={handleBrandClick} />
 
-      <section className="hero-grid">
+      <section className={`hero-grid ${showPreviewPanel ? "has-preview" : "centered"} ${previewEntering ? "entering" : ""}`}>
         <div className="hero-copy">
           <div className="eyebrow">
             <Sparkles size={16} />
@@ -330,17 +522,25 @@ function App() {
           {error ? <div className="error-banner">{error}</div> : null}
         </div>
 
-        <div className="preview-panel">
+        <div className={`preview-panel ${showPreviewPanel ? "visible" : ""}`}>
           {video ? (
             <VideoSummary video={video} t={t} />
-          ) : (
+          ) : showPreviewPanel ? (
             <div className="empty-preview">
-              <div className="pulse-ring">
-                <Play size={34} fill="currentColor" />
+              <div className="preview-skeleton">
+                <div className="skeleton-thumb" />
+                <div className="skeleton-lines">
+                  <span />
+                  <strong />
+                  <strong />
+                </div>
               </div>
-              <span>{t.videoInfo}</span>
+              <div className="empty-preview-copy">
+                <span>{t.waitingVideo}</span>
+                <p>{t.waitingHint}</p>
+              </div>
             </div>
-          )}
+          ) : null}
         </div>
       </section>
 
@@ -384,37 +584,6 @@ function App() {
         </section>
       ) : null}
 
-      {phase === "battle" && currentRound ? (
-        <BattleArena
-          t={t}
-          video={video}
-          round={currentRound}
-          roundIndex={roundIndex}
-          total={rounds.length}
-          score={score}
-          selected={selected}
-          result={result}
-          maskAuthors={maskAuthors}
-          onChoose={choose}
-          onNext={nextRound}
-        />
-      ) : null}
-
-      {phase === "gameover" ? (
-        <div className="modal-backdrop show">
-          <div className="result-modal">
-            <div className="result-badge">{t.gameOver}</div>
-            <h2>
-              {t.finalScore} {score}
-            </h2>
-            <button onClick={resetGame}>
-              <RotateCcw size={18} />
-              {t.playAgain}
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       {settingsOpen ? (
         <SettingsDialog
           t={t}
@@ -431,6 +600,68 @@ function App() {
   );
 }
 
+function Topbar({ t, onOpenSettings, onBrandClick, compact = false }) {
+  return (
+    <header className={`topbar ${compact ? "compact" : ""}`}>
+      <button className="brand-mark" onClick={onBrandClick} type="button">
+        <span className="brand-icon">
+          <img src={logoUrl} alt="" />
+        </span>
+        <span>{t.brand}</span>
+      </button>
+      <button className="icon-button" onClick={onOpenSettings} aria-label={t.settings}>
+        <Settings size={21} />
+      </button>
+    </header>
+  );
+}
+
+function LeaveConfirm({ t, onCancel, onConfirm }) {
+  return (
+    <div className="modal-backdrop show">
+      <div className="confirm-modal">
+        <h2>{t.leaveGameTitle}</h2>
+        <p>{t.leaveGameCopy}</p>
+        <div className="confirm-actions">
+          <button className="ghost-button" onClick={onCancel}>
+            {t.stay}
+          </button>
+          <button onClick={onConfirm}>{t.leave}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoadingScreen({ t, video, progress }) {
+  return (
+    <section className="loading-stage">
+      <div className="loading-video">
+        <img src={video.thumbnail} alt="" />
+        <div>
+          <span>{video.channelTitle}</span>
+          <strong>{video.title}</strong>
+        </div>
+      </div>
+      <div className="loading-core">
+        <div className="loader-orbit">
+          <Play size={34} fill="currentColor" />
+        </div>
+        <span className="loading-kicker">{t.preparingBattle}</span>
+        <h1>{t.loadingTitle}</h1>
+        <p>{t.loadingCopy}</p>
+        <div className="progress-head">
+          <span>{t.loadingComments}</span>
+          <strong>{Math.round(progress)}%</strong>
+        </div>
+        <div className="progress-bar" aria-label={t.loadingComments}>
+          <div style={{ width: `${progress}%` }} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function VideoSummary({ video, t }) {
   return (
     <div className="video-card">
@@ -440,10 +671,10 @@ function VideoSummary({ video, t }) {
         <span>{video.channelTitle}</span>
         <h2>{video.title}</h2>
         <div className="stats-row">
-          <Stat label={t.comments} value={number(video.commentCount)} />
+          <Stat label={t.comments} value={compactNumber(video.commentCount)} />
           <Stat label={t.duration} value={video.durationLabel} />
-          <Stat label={t.views} value={number(video.viewCount)} />
-          <Stat label={t.likes} value={number(video.likeCount)} />
+          <Stat label={t.views} value={compactNumber(video.viewCount)} />
+          <Stat label={t.likes} value={compactNumber(video.likeCount)} />
         </div>
       </div>
     </div>
@@ -468,13 +699,9 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
       <div className="battle-header">
         <div>
           <span className="round-chip">
-            {t.round} {roundIndex + 1}/{total}
+            {t.round} {roundIndex + 1} · {t.correctCount} {score}
           </span>
           <h2>{t.battleTitle}</h2>
-        </div>
-        <div className="score-board">
-          <span>{t.score}</span>
-          <strong>{score}</strong>
         </div>
       </div>
 
@@ -497,7 +724,9 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
           t={t}
           onChoose={onChoose}
         />
-        <div className="versus">VS</div>
+        <div className="versus" aria-hidden="true">
+          <span>VS</span>
+        </div>
         <CommentChoice
           side="right"
           comment={round.right}
@@ -537,7 +766,6 @@ function CommentChoice({ side, comment, selected, winner, revealed, maskAuthors,
       onClick={() => onChoose(side)}
       disabled={Boolean(selected)}
     >
-      <div className="choice-label">{side === "left" ? "A" : "B"}</div>
       <p>{comment.text}</p>
       <div className="comment-meta">
         <span>{maskAuthors ? comment.maskedAuthor : comment.author}</span>
