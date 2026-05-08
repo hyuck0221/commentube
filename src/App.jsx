@@ -19,9 +19,9 @@ import logoUrl from "../logo.png";
 const dictionaries = {
   ko: {
     brand: "Commentube",
-    tagline: "유튜브 댓글창을 속도감 있는 미니게임으로.",
-    heroTitle: "댓글 좋아요 수, 어디까지 맞힐 수 있을까?",
-    heroCopy: "영상 링크를 넣으면 정보를 먼저 분석하고, 댓글 100개 이상 영상에서 댓글 배틀을 바로 생성합니다.",
+    tagline: "영상 아래 숨어 있는 반응을 플레이하세요.",
+    heroTitle: "댓글이 게임이 되는 순간",
+    heroCopy: "유튜브 링크 하나로 댓글의 분위기, 드립, 공감을 읽어내고 바로 플레이할 수 있는 미니게임을 만듭니다.",
     inputPlaceholder: "https://www.youtube.com/watch?v=...",
     analyze: "영상 분석",
     analyzing: "분석 중",
@@ -78,9 +78,9 @@ const dictionaries = {
   },
   en: {
     brand: "Commentube",
-    tagline: "Turn YouTube comments into fast little games.",
-    heroTitle: "How long can you guess the higher-liked comment?",
-    heroCopy: "Paste a video link, preview the video stats, then generate Comment Battle for videos with 100+ comments.",
+    tagline: "Play the reactions hiding beneath every video.",
+    heroTitle: "Where comments become a game",
+    heroCopy: "Paste a YouTube link and turn the jokes, moods, and moments in the comment section into an instant mini-game.",
     inputPlaceholder: "https://www.youtube.com/watch?v=...",
     analyze: "Analyze video",
     analyzing: "Analyzing",
@@ -137,9 +137,9 @@ const dictionaries = {
   },
   ja: {
     brand: "Commentube",
-    tagline: "YouTubeコメントをテンポの速いミニゲームに。",
-    heroTitle: "高評価の多いコメントを何回当てられる？",
-    heroCopy: "動画リンクを入れると情報を分析し、コメント100件以上の動画でコメントバトルを生成します。",
+    tagline: "動画の下に眠るリアクションを遊ぼう。",
+    heroTitle: "コメントがゲームになる瞬間",
+    heroCopy: "YouTubeリンクひとつで、コメント欄の空気、ネタ、共感をそのまま遊べるミニゲームに変えます。",
     inputPlaceholder: "https://www.youtube.com/watch?v=...",
     analyze: "動画を分析",
     analyzing: "分析中",
