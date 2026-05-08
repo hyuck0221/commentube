@@ -72,6 +72,20 @@ async function fetchCommentLane(videoId, order, targetCount) {
   return comments;
 }
 
+export async function fetchCommentsForVideo(videoId, target) {
+  const [relevance, time] = await Promise.all([
+    fetchCommentLane(videoId, "relevance", Math.ceil(target * 0.65)),
+    fetchCommentLane(videoId, "time", Math.ceil(target * 0.45))
+  ]);
+
+  const byId = new Map();
+  [...relevance, ...time].forEach((comment) => {
+    if (comment.id && !byId.has(comment.id)) byId.set(comment.id, comment);
+  });
+
+  return [...byId.values()];
+}
+
 function buildBattleRounds(comments) {
   const eligible = comments
     .filter((comment) => comment.text.length >= 6 && comment.text.length <= 280)
@@ -165,17 +179,7 @@ export default async function handler(req, res) {
     const cached = getCache(cacheKey);
     if (cached) return sendJson(res, 200, { ...cached, cached: true });
 
-    const [relevance, time] = await Promise.all([
-      fetchCommentLane(videoId, "relevance", Math.ceil(target * 0.65)),
-      fetchCommentLane(videoId, "time", Math.ceil(target * 0.45))
-    ]);
-
-    const byId = new Map();
-    [...relevance, ...time].forEach((comment) => {
-      if (comment.id && !byId.has(comment.id)) byId.set(comment.id, comment);
-    });
-
-    const comments = [...byId.values()];
+    const comments = await fetchCommentsForVideo(videoId, target);
     if (comments.length < MIN_PLAYABLE_COMMENTS) {
       throw new ApiError(422, `댓글을 ${comments.length}개만 불러왔습니다. 댓글 100개 이상인 영상에서 플레이할 수 있어요.`);
     }

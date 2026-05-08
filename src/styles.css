@@ -687,6 +687,10 @@ button:disabled {
   opacity: 0.72;
 }
 
+.game-tile.real {
+  border-color: rgba(56, 232, 255, 0.36);
+}
+
 .game-tile h3 {
   margin: 16px 0 8px;
   font-size: 28px;
@@ -712,6 +716,54 @@ button:disabled {
   border-radius: 8px;
   color: #b9c4dc;
   white-space: nowrap;
+}
+
+.candidate-picker {
+  margin-top: 18px;
+}
+
+.candidate-picker > span {
+  display: block;
+  margin-bottom: 9px;
+  color: #d7efff;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.candidate-picker > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.candidate-picker button,
+.game-tile .candidate-picker button {
+  width: 38px;
+  min-height: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  color: #dbe5f6;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0;
+  font-weight: 950;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease;
+}
+
+.candidate-picker button:hover,
+.game-tile .candidate-picker button:hover {
+  transform: none;
+  border-color: rgba(56, 232, 255, 0.58);
+  filter: none;
+}
+
+.candidate-picker button.active {
+  border-color: transparent;
+  color: #061019;
+  background: var(--aqua);
 }
 
 .battle-arena {
@@ -778,6 +830,45 @@ button:disabled {
   align-items: stretch;
   height: min(42vh, 330px);
   min-height: 270px;
+}
+
+.real-comment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  height: min(48vh, 390px);
+  min-height: 300px;
+}
+
+.real-comment-grid.count-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.real-comment-grid.count-3,
+.real-comment-grid.count-5 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.real-comment-grid.count-6,
+.real-comment-grid.count-8,
+.real-comment-grid.count-10 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.real-choice {
+  gap: 14px;
+  padding: clamp(14px, 2vh, 20px);
+}
+
+.real-choice p {
+  min-height: 74px;
+  max-height: min(22vh, 190px);
+  font-size: clamp(16px, 2.2vh, 22px);
+}
+
+.real-comment-grid.count-8 .real-choice p,
+.real-comment-grid.count-10 .real-choice p {
+  font-size: clamp(14px, 1.85vh, 18px);
 }
 
 .versus {
@@ -990,6 +1081,16 @@ button:disabled {
   background: var(--brand);
   font-weight: 950;
   white-space: nowrap;
+}
+
+.comment-meta strong.real-tag {
+  color: #dbe4f8;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.comment-meta strong.ai-tag {
+  color: #061019;
+  background: var(--aqua);
 }
 
 .hidden-likes {

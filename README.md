@@ -1,6 +1,6 @@
 # Commentube
 
-YouTube 영상 링크를 댓글 기반 미니게임으로 바꾸는 React + Vite 앱입니다. 현재 MVP는 `댓글 배틀`을 지원하고, `진짜 댓글 찾기`는 AI 생성 댓글 품질을 다듬은 뒤 공개하는 모드로 남겨두었습니다.
+YouTube 영상 링크를 댓글 기반 미니게임으로 바꾸는 React + Vite 앱입니다. 현재 MVP는 `댓글 배틀`과 Gemini 기반 `진짜 댓글 찾기`를 지원합니다.
 
 ## Features
 
@@ -11,6 +11,8 @@ YouTube 영상 링크를 댓글 기반 미니게임으로 바꾸는 React + Vite
 - 댓글 100개 이상 영상만 댓글 배틀 활성화
 - `relevance`와 `time` 댓글 수집 레인 병렬 실행 후 dedupe
 - 영상 댓글 결과 30분 인메모리 캐싱
+- Gemini API로 실제 댓글 100개 분위기를 읽고 AI 댓글 묶음 생성
+- `GEMINI_API_KEYS` 콤마 구분 다중 key 등록 및 라운드로빈 사용
 - 작성자 마스킹, 공개 속도, 다국어 설정
 - 한국어/영어/일본어 UI
 
@@ -26,6 +28,8 @@ Vercel 배포 환경 변수:
 
 ```bash
 YOUTUBE_API_KEYS=key_one,key_two,key_three
+GEMINI_API_KEYS=gemini_key_one,gemini_key_two
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 ## Notes

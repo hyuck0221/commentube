@@ -51,12 +51,22 @@ const dictionaries = {
     loadingComments: "댓글 후보 수집 중",
     loadingTitle: "댓글 배틀 준비 중",
     loadingCopy: "좋아요가 있는 댓글을 모으고, 비슷한 점수대의 대결 후보를 만들고 있어요.",
+    aiLoadingTitle: "AI 댓글 섞는 중",
+    aiLoadingCopy: "실제 댓글 100개 정도의 말투와 분위기를 읽고, 자연스러운 가짜 댓글 묶음을 만들고 있어요.",
+    aiPreparing: "AI 라운드 구성",
+    aiLoadingComments: "AI 댓글 생성 중",
     preparingBattle: "라운드 구성",
     correctCount: "정답",
     battleTitle: "댓글 배틀",
     battleDescription: "둘 중 좋아요 수가 더 높은 댓글을 고르세요. 틀리면 종료됩니다.",
     realCommentTitle: "진짜 댓글 찾기",
-    aiSoon: "AI 생성 댓글 품질을 다듬은 뒤 공개 예정",
+    realCommentDescription: "실제 댓글 사이에 숨어 있는 AI 댓글 하나를 찾아보세요.",
+    candidateCount: "후보 개수",
+    aiComment: "AI 댓글",
+    findAiComment: "AI가 쓴 댓글 찾기",
+    aiReveal: "AI 댓글이었습니다",
+    realReveal: "실제 댓글",
+    aiRefill: "AI 댓글을 다시 준비하고 있어요.",
     score: "연속 정답",
     round: "라운드",
     chooseHigher: "좋아요가 더 많다",
@@ -110,12 +120,22 @@ const dictionaries = {
     loadingComments: "Collecting comment candidates",
     loadingTitle: "Preparing Comment Battle",
     loadingCopy: "Collecting liked comments and matching close battle candidates.",
+    aiLoadingTitle: "Mixing AI comments",
+    aiLoadingCopy: "Reading around 100 real comments and creating a natural batch of fake comments.",
+    aiPreparing: "Building AI rounds",
+    aiLoadingComments: "Generating AI comments",
     preparingBattle: "Building rounds",
     correctCount: "Correct",
     battleTitle: "Comment Battle",
     battleDescription: "Pick the comment with more likes. One miss ends the run.",
     realCommentTitle: "Find the Real Comment",
-    aiSoon: "Coming after the AI fake-comment quality is tuned",
+    realCommentDescription: "Find the one AI comment hiding among real viewer comments.",
+    candidateCount: "Choice count",
+    aiComment: "AI comment",
+    findAiComment: "Find the AI-written comment",
+    aiReveal: "This was the AI comment",
+    realReveal: "Real comment",
+    aiRefill: "Preparing more AI comments.",
     score: "Streak",
     round: "Round",
     chooseHigher: "Has more likes",
@@ -169,12 +189,22 @@ const dictionaries = {
     loadingComments: "コメント候補を収集中",
     loadingTitle: "コメントバトル準備中",
     loadingCopy: "高評価のあるコメントを集め、近いスコアの対戦候補を作っています。",
+    aiLoadingTitle: "AIコメントを混ぜています",
+    aiLoadingCopy: "実際のコメント約100件の空気を読み、自然なAIコメントをまとめて作っています。",
+    aiPreparing: "AIラウンド生成",
+    aiLoadingComments: "AIコメント生成中",
     preparingBattle: "ラウンド生成",
     correctCount: "正解",
     battleTitle: "コメントバトル",
     battleDescription: "高評価が多いコメントを選びます。外すと終了です。",
     realCommentTitle: "本物コメント探し",
-    aiSoon: "AIコメント品質を調整後に公開予定",
+    realCommentDescription: "実際のコメントに紛れたAIコメントを1つ見つけます。",
+    candidateCount: "候補数",
+    aiComment: "AIコメント",
+    findAiComment: "AIが書いたコメントを探す",
+    aiReveal: "AIコメントでした",
+    realReveal: "実際のコメント",
+    aiRefill: "AIコメントを追加準備しています。",
     score: "連続正解",
     round: "ラウンド",
     chooseHigher: "高評価が多い",
@@ -299,6 +329,9 @@ function App() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [previewEntering, setPreviewEntering] = useState(false);
+  const [candidateCount, setCandidateCount] = useState(4);
+  const [gameType, setGameType] = useState("battle");
+  const [loadingMode, setLoadingMode] = useState("battle");
 
   useEffect(() => {
     localStorage.setItem("commentube-language", language);
@@ -368,6 +401,7 @@ function App() {
     setRounds([]);
     setPhase("idle");
     setPreviewEntering(true);
+    setGameType("battle");
 
     try {
       const payload = await requestJson(`/api/video?url=${encodeURIComponent(url.trim())}`);
@@ -382,6 +416,8 @@ function App() {
 
   async function startBattle() {
     if (!video || !canBattle) return;
+    setGameType("battle");
+    setLoadingMode("battle");
     setLoading(true);
     setError("");
     setPhase("loading");
@@ -406,10 +442,52 @@ function App() {
     }
   }
 
+  async function startRealCommentGame({ fresh = false, preserveScore = false } = {}) {
+    if (!video || !canBattle) return;
+    setGameType("real");
+    setLoadingMode("real");
+    setLoading(true);
+    setError("");
+    setPhase("loading");
+    setLoadingProgress(2);
+    setCommentsMeta(null);
+
+    try {
+      const endpoint = `/api/real-comment-rounds?videoId=${encodeURIComponent(video.videoId)}&candidateCount=${candidateCount}&language=${language}${
+        fresh ? "&fresh=1" : ""
+      }`;
+      const payload = await requestJson(endpoint);
+      setLoadingProgress(100);
+      setRounds(payload.rounds || []);
+      setCommentsMeta(payload);
+      setRoundIndex(0);
+      setScore((value) => (preserveScore ? value : 0));
+      setSelected(null);
+      setResult(null);
+      window.setTimeout(() => setPhase("real"), 450);
+    } catch (err) {
+      setError(err.message || t.apiError);
+      setPhase("idle");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function choose(side) {
     if (!currentRound || selected) return;
     setSelected(side);
     const isCorrect = side === currentRound.answer;
+
+    window.setTimeout(() => {
+      setResult(isCorrect ? "correct" : "wrong");
+      if (isCorrect) setScore((value) => value + 1);
+    }, revealDelays[revealSpeed]);
+  }
+
+  function chooseReal(choiceId) {
+    if (!currentRound || selected) return;
+    setSelected(choiceId);
+    const isCorrect = choiceId === currentRound.answer;
 
     window.setTimeout(() => {
       setResult(isCorrect ? "correct" : "wrong");
@@ -427,7 +505,25 @@ function App() {
     setResult(null);
   }
 
+  async function nextRealRound() {
+    if (result === "wrong") {
+      setPhase("gameover");
+      return;
+    }
+    if (roundIndex >= rounds.length - 1) {
+      await startRealCommentGame({ fresh: true, preserveScore: true });
+      return;
+    }
+    setRoundIndex((value) => value + 1);
+    setSelected(null);
+    setResult(null);
+  }
+
   function resetGame() {
+    if (gameType === "real") {
+      startRealCommentGame({ fresh: true });
+      return;
+    }
     setRounds((value) => shuffleRounds(value));
     setRoundIndex(0);
     setScore(0);
@@ -447,7 +543,7 @@ function App() {
   }
 
   function handleBrandClick() {
-    if (phase === "battle" || phase === "gameover" || phase === "loading") {
+    if (phase === "battle" || phase === "real" || phase === "gameover" || phase === "loading") {
       setLeaveConfirmOpen(true);
       return;
     }
@@ -459,7 +555,15 @@ function App() {
       <main className="app-shell loading-shell">
         <div className="speed-lines" />
         <Topbar t={t} onOpenSettings={() => setSettingsOpen(true)} onBrandClick={handleBrandClick} />
-        <LoadingScreen t={t} video={video} progress={loadingProgress} />
+        <LoadingScreen
+          t={t}
+          video={video}
+          progress={loadingProgress}
+          title={loadingMode === "real" ? t.aiLoadingTitle : t.loadingTitle}
+          copy={loadingMode === "real" ? t.aiLoadingCopy : t.loadingCopy}
+          kicker={loadingMode === "real" ? t.aiPreparing : t.preparingBattle}
+          label={loadingMode === "real" ? t.aiLoadingComments : t.loadingComments}
+        />
         {leaveConfirmOpen ? <LeaveConfirm t={t} onCancel={() => setLeaveConfirmOpen(false)} onConfirm={goHome} /> : null}
         {settingsOpen ? (
           <SettingsDialog
@@ -477,24 +581,39 @@ function App() {
     );
   }
 
-  if ((phase === "battle" || phase === "gameover") && currentRound) {
+  if ((phase === "battle" || phase === "real" || phase === "gameover") && currentRound) {
     return (
       <main className="app-shell game-shell">
         <div className="speed-lines" />
         <Topbar t={t} onOpenSettings={() => setSettingsOpen(true)} onBrandClick={handleBrandClick} compact />
-        <BattleArena
-          t={t}
-          video={video}
-          round={currentRound}
-          roundIndex={roundIndex}
-          total={rounds.length}
-          score={score}
-          selected={selected}
-          result={result}
-          maskAuthors={maskAuthors}
-          onChoose={choose}
-          onNext={nextRound}
-        />
+        {phase === "real" || gameType === "real" ? (
+          <RealCommentArena
+            t={t}
+            video={video}
+            round={currentRound}
+            roundIndex={roundIndex}
+            score={score}
+            selected={selected}
+            result={result}
+            maskAuthors={maskAuthors}
+            onChoose={chooseReal}
+            onNext={nextRealRound}
+          />
+        ) : (
+          <BattleArena
+            t={t}
+            video={video}
+            round={currentRound}
+            roundIndex={roundIndex}
+            total={rounds.length}
+            score={score}
+            selected={selected}
+            result={result}
+            maskAuthors={maskAuthors}
+            onChoose={choose}
+            onNext={nextRound}
+          />
+        )}
         {phase === "gameover" ? (
           <div className="modal-backdrop show">
             <div className="result-modal">
@@ -603,15 +722,19 @@ function App() {
               </button>
             </article>
 
-            <article className="game-tile locked">
+            <article className={`game-tile real ${canBattle ? "" : "locked"}`}>
               <div>
                 <div className="tile-icon muted">
                   <Eye size={22} />
                 </div>
                 <h3>{t.realCommentTitle}</h3>
-                <p>{t.aiSoon}</p>
+                <p>{canBattle ? t.realCommentDescription : t.minimumBlocked}</p>
+                <CandidatePicker t={t} value={candidateCount} onChange={setCandidateCount} />
               </div>
-              <span className="coming-soon">{t.comingSoon}</span>
+              <button onClick={() => startRealCommentGame()} disabled={!canBattle || loading}>
+                {loading && loadingMode === "real" ? <Loader2 className="spin" size={18} /> : <Eye size={18} />}
+                {loading && loadingMode === "real" ? t.aiLoadingComments : t.findAiComment}
+              </button>
             </article>
           </div>
         </section>
@@ -666,7 +789,7 @@ function LeaveConfirm({ t, onCancel, onConfirm }) {
   );
 }
 
-function LoadingScreen({ t, video, progress }) {
+function LoadingScreen({ t, video, progress, title, copy, kicker, label }) {
   return (
     <section className="loading-stage">
       <div className="loading-video">
@@ -680,18 +803,38 @@ function LoadingScreen({ t, video, progress }) {
         <div className="loader-orbit">
           <Play size={34} fill="currentColor" />
         </div>
-        <span className="loading-kicker">{t.preparingBattle}</span>
-        <h1>{t.loadingTitle}</h1>
-        <p>{t.loadingCopy}</p>
+        <span className="loading-kicker">{kicker}</span>
+        <h1>{title}</h1>
+        <p>{copy}</p>
         <div className="progress-head">
-          <span>{t.loadingComments}</span>
+          <span>{label}</span>
           <strong>{Math.round(progress)}%</strong>
         </div>
-        <div className="progress-bar" aria-label={t.loadingComments}>
+        <div className="progress-bar" aria-label={label}>
           <div style={{ width: `${progress}%` }} />
         </div>
       </div>
     </section>
+  );
+}
+
+function CandidatePicker({ t, value, onChange }) {
+  return (
+    <div className="candidate-picker" onClick={(event) => event.stopPropagation()}>
+      <span>{t.candidateCount}</span>
+      <div>
+        {[2, 3, 4, 5, 6, 8, 10].map((count) => (
+          <button
+            key={count}
+            type="button"
+            className={value === count ? "active" : ""}
+            onClick={() => onChange(count)}
+          >
+            {count}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -789,6 +932,98 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
         </div>
       ) : null}
     </section>
+  );
+}
+
+function RealCommentArena({ t, video, round, roundIndex, score, selected, result, maskAuthors, onChoose, onNext }) {
+  const revealed = Boolean(result);
+  const [activeTimestamp, setActiveTimestamp] = useState(null);
+
+  return (
+    <section className={`battle-arena real-arena ${revealed ? "revealed" : ""}`}>
+      <TimestampViewer video={video} timestamp={activeTimestamp} onClose={() => setActiveTimestamp(null)} />
+      <div className="battle-header">
+        <div>
+          <span className="round-chip">
+            {t.round} {roundIndex + 1} · {t.correctCount} {score}
+          </span>
+          <h2>{t.realCommentTitle}</h2>
+        </div>
+      </div>
+
+      <div className="thumbnail-strip">
+        <img src={video.thumbnail} alt="" />
+        <div>
+          <span>{video.channelTitle}</span>
+          <strong>{video.title}</strong>
+        </div>
+      </div>
+
+      <div className={`real-comment-grid count-${round.choices.length}`}>
+        {round.choices.map((comment) => (
+          <RealCommentChoice
+            key={comment.choiceId}
+            comment={comment}
+            selected={selected}
+            answer={round.answer}
+            revealed={revealed}
+            maskAuthors={maskAuthors}
+            t={t}
+            onChoose={onChoose}
+            onOpenTimestamp={setActiveTimestamp}
+          />
+        ))}
+      </div>
+
+      {revealed ? (
+        <div className={`result-strip ${result}`}>
+          <strong>{result === "correct" ? t.correct : t.wrong}</strong>
+          <span>{result === "correct" ? t.aiReveal : t.aiReveal}</span>
+          <button onClick={onNext}>
+            {result === "correct" ? t.nextRound : t.playAgain}
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function RealCommentChoice({ comment, selected, answer, revealed, maskAuthors, t, onChoose, onOpenTimestamp }) {
+  const isSelected = selected === comment.choiceId;
+  const isAnswer = answer === comment.choiceId;
+
+  return (
+    <div
+      role="button"
+      tabIndex={selected ? -1 : 0}
+      className={`comment-choice real-choice ${isSelected ? "selected" : ""} ${revealed && isAnswer ? "winner" : ""} ${
+        revealed && isSelected && !isAnswer ? "loser" : ""
+      }`}
+      onClick={() => onChoose(comment.choiceId)}
+      onKeyDown={(event) => {
+        if (selected) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onChoose(comment.choiceId);
+        }
+      }}
+    >
+      <CommentText text={comment.text} onOpenTimestamp={onOpenTimestamp} />
+      <div className="comment-meta">
+        <span>{maskAuthors ? comment.maskedAuthor : comment.author}</span>
+        {revealed ? (
+          <strong className={isAnswer ? "ai-tag" : "real-tag"}>
+            {isAnswer ? t.aiComment : t.realReveal}
+          </strong>
+        ) : (
+          <span className="hidden-likes">
+            <Eye size={16} />
+            {t.findAiComment}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 
