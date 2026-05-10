@@ -3,6 +3,7 @@ import { ApiError, extractVideoId, getCache, getQueryParam, handleError, sendJso
 import { fetchCommentsForVideo } from "./comments.js";
 
 const MIN_PLAYABLE_COMMENTS = 100;
+const AI_SAMPLE_COMMENT_COUNT = 200;
 const DEFAULT_AI_BATCH = 40;
 const MAX_CANDIDATE_COUNT = 10;
 const MIN_CANDIDATE_COUNT = 2;
@@ -30,20 +31,50 @@ function sanitizeAiComment(value = "") {
     .slice(0, 240);
 }
 
-function fakeAuthor(index) {
-  const handles = [
-    "comment_clip",
-    "daylight_viewer",
-    "replay_mode",
-    "late_night_edit",
-    "moment_picker",
-    "watching_again",
-    "scene_marker",
-    "quiet_viewer",
-    "timeline_note",
-    "daily_watch"
-  ];
-  return `@${handles[index % handles.length]}${Math.floor(Math.random() * 90 + 10)}`;
+function authorKey(comment) {
+  return String(comment?.author || "").trim().toLowerCase();
+}
+
+function takeUniqueRealChoices(pool, needed) {
+  const choices = [];
+  const usedAuthors = new Set();
+
+  for (let index = 0; index < pool.length && choices.length < needed; ) {
+    const comment = pool[index];
+    const key = authorKey(comment);
+
+    if (key && !usedAuthors.has(key)) {
+      choices.push(comment);
+      usedAuthors.add(key);
+      pool.splice(index, 1);
+      continue;
+    }
+
+    index += 1;
+  }
+
+  return choices;
+}
+
+function uniqueAuthors(comments) {
+  const byAuthor = new Map();
+
+  for (const comment of comments) {
+    const key = authorKey(comment);
+    if (!key || byAuthor.has(key)) continue;
+    byAuthor.set(key, {
+      author: comment.author,
+      maskedAuthor: comment.maskedAuthor
+    });
+  }
+
+  return [...byAuthor.values()];
+}
+
+function pickBorrowedAuthor(authorPool, blockedAuthors) {
+  const candidates = authorPool.filter((author) => !blockedAuthors.has(String(author.author || "").trim().toLowerCase()));
+  if (!candidates.length) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 async function fetchVideoMeta(videoId) {
@@ -63,7 +94,7 @@ async function fetchVideoMeta(videoId) {
 
 function buildPrompt({ video, comments, language, count }) {
   const samples = comments
-    .slice(0, 100)
+    .slice(0, AI_SAMPLE_COMMENT_COUNT)
     .map((comment, index) => `${index + 1}. ${comment.text}`)
     .join("\n");
 
@@ -82,11 +113,12 @@ ${samples}
 Generate ${count} original fake comments in ${languageLabels[language] || "Korean"}.
 Rules:
 - Make them feel like different real viewers wrote them under this specific video.
-- Match the sample comments' casualness, length, rhythm, humor, abbreviations, and timestamp habits when appropriate.
+- Match the sample comments' casualness, length, rhythm, humor, and abbreviations when appropriate.
 - Do not copy, paraphrase too closely, or lightly edit any real sample.
 - Do not mention AI, bots, guessing games, or that the comment is fake.
 - Avoid hate, threats, sexual content, private information, spam, and slurs.
-- Mix short comments, medium comments, reactions, jokes, and a few timestamp-style comments if the samples use them.
+- Mix short comments, medium comments, reactions, and jokes.
+- Do not include timestamps or timecode-like text such as 0:42, 12:03, or 1:02:33.
 - Keep each comment under 180 characters unless the samples are naturally longer.
 Return only valid JSON.
 `.trim();
@@ -127,8 +159,6 @@ async function generateAiComments({ videoId, language, sampleComments, fresh }) 
     .map((comment, index) => ({
       id: `ai-${Date.now()}-${index}`,
       text: sanitizeAiComment(comment.text),
-      author: fakeAuthor(index),
-      maskedAuthor: "@********",
       type: "ai"
     }))
     .filter((comment) => comment.text.length >= 4)
@@ -151,18 +181,28 @@ function buildRealCommentRounds({ comments, aiComments, candidateCount }) {
   const realPool = shuffle(
     comments
       .filter((comment) => comment.text.length >= 4 && comment.text.length <= 260)
+      .filter((comment) => authorKey(comment))
       .map((comment) => ({ ...comment, type: "real" }))
   );
+  const authorPool = uniqueAuthors(realPool);
   const rounds = [];
-  let cursor = 0;
 
   for (const aiComment of aiComments) {
     const realNeeded = candidateCount - 1;
-    const realChoices = realPool.slice(cursor, cursor + realNeeded);
+    const realChoices = takeUniqueRealChoices(realPool, realNeeded);
     if (realChoices.length < realNeeded) break;
-    cursor += realNeeded;
 
-    const choices = shuffle([...realChoices, aiComment]).map((choice, index) => ({
+    const roundAuthors = new Set(realChoices.map(authorKey));
+    const borrowedAuthor = pickBorrowedAuthor(authorPool, roundAuthors);
+    if (!borrowedAuthor) break;
+
+    const disguisedAiComment = {
+      ...aiComment,
+      author: borrowedAuthor.author,
+      maskedAuthor: borrowedAuthor.maskedAuthor
+    };
+
+    const choices = shuffle([...realChoices, disguisedAiComment]).map((choice, index) => ({
       ...choice,
       choiceId: `choice-${rounds.length + 1}-${index + 1}`
     }));
@@ -202,7 +242,10 @@ export default async function handler(req, res) {
       throw new ApiError(422, `댓글을 ${comments.length}개만 불러왔습니다. 댓글 100개 이상인 영상에서 플레이할 수 있어요.`);
     }
 
-    const sampleComments = shuffle(comments.filter((comment) => comment.text.length >= 4 && comment.text.length <= 220)).slice(0, 100);
+    const sampleComments = shuffle(comments.filter((comment) => comment.text.length >= 4 && comment.text.length <= 220)).slice(
+      0,
+      AI_SAMPLE_COMMENT_COUNT
+    );
     const { aiComments, cachedAi } = await generateAiComments({ videoId, language, sampleComments, fresh });
     const rounds = buildRealCommentRounds({ comments, aiComments, candidateCount });
 

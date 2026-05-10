@@ -521,6 +521,17 @@ function App() {
 
   function resetGame() {
     if (gameType === "real") {
+      const unusedRounds = rounds.slice(roundIndex + 1);
+      if (unusedRounds.length) {
+        setRounds(unusedRounds);
+        setRoundIndex(0);
+        setScore(0);
+        setSelected(null);
+        setResult(null);
+        setPhase("real");
+        return;
+      }
+
       startRealCommentGame({ fresh: true });
       return;
     }
