@@ -31,6 +31,7 @@ export default async function handler(req, res) {
     if (!item) throw new ApiError(404, "영상을 찾을 수 없습니다.");
 
     const durationSeconds = secondsFromDuration(item.contentDetails?.duration);
+    const commentCount = Number(item.statistics?.commentCount || 0);
     const payload = {
       videoId,
       url: `https://www.youtube.com/watch?v=${videoId}`,
@@ -48,23 +49,33 @@ export default async function handler(req, res) {
       durationLabel: formatDuration(durationSeconds),
       viewCount: Number(item.statistics?.viewCount || 0),
       likeCount: Number(item.statistics?.likeCount || 0),
-      commentCount: Number(item.statistics?.commentCount || 0),
+      commentCount,
       games: [
         {
           id: "comment-battle",
           title: "댓글 배틀",
-          available: Number(item.statistics?.commentCount || 0) >= 100,
+          available: commentCount >= 100,
           minimumCommentCount: 100,
-          status:
-            Number(item.statistics?.commentCount || 0) >= 100
-              ? "플레이 가능"
-              : "댓글 100개 이상 영상부터 플레이 가능"
+          status: commentCount >= 100 ? "플레이 가능" : "댓글 100개 이상 영상부터 플레이 가능"
         },
         {
           id: "real-comment",
           title: "진짜 댓글 찾기",
-          available: false,
-          status: "AI 모드 준비 중"
+          available: commentCount >= 100,
+          minimumCommentCount: 100,
+          status: commentCount >= 100 ? "플레이 가능" : "댓글 100개 이상 영상부터 플레이 가능"
+        },
+        {
+          id: "comment-tools",
+          title: "댓글 추첨/추출",
+          available: commentCount > 0 && commentCount <= 10000,
+          maximumCommentCount: 10000,
+          status:
+            commentCount > 10000
+              ? "댓글 1만개 이하 영상에서만 사용 가능"
+              : commentCount > 0
+                ? "사용 가능"
+                : "댓글이 있는 영상에서 사용 가능"
         }
       ]
     };

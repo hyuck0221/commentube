@@ -32,28 +32,52 @@ function maskAuthor(name = "") {
   return `${compact[0]}${"*".repeat(Math.min(compact.length - 2, 8))}${compact.at(-1)}`;
 }
 
+function baseCommentFields(snippet = {}, id = "") {
+  const author = snippet.authorDisplayName || "익명";
+  return {
+    id,
+    text: cleanText(snippet.textDisplay || snippet.textOriginal || ""),
+    author,
+    maskedAuthor: maskAuthor(author),
+    likeCount: Number(snippet.likeCount || 0),
+    publishedAt: snippet.publishedAt || "",
+    updatedAt: snippet.updatedAt || ""
+  };
+}
+
 function normalizeComment(item, source) {
   const comment = item.snippet?.topLevelComment;
   const snippet = comment?.snippet || {};
   return {
-    id: comment?.id || item.id,
-    text: cleanText(snippet.textDisplay || snippet.textOriginal || ""),
-    author: snippet.authorDisplayName || "익명",
-    maskedAuthor: maskAuthor(snippet.authorDisplayName || "익명"),
-    likeCount: Number(snippet.likeCount || 0),
-    publishedAt: snippet.publishedAt || "",
-    updatedAt: snippet.updatedAt || "",
+    ...baseCommentFields(snippet, comment?.id || item.id),
     replyCount: Number(item.snippet?.totalReplyCount || 0),
+    isReply: false,
+    parentId: "",
+    parentAuthor: "",
+    parentText: "",
     source
   };
 }
 
-async function fetchCommentLane(videoId, order, targetCount) {
+function normalizeReply(item, parent) {
+  const snippet = item.snippet || {};
+  return {
+    ...baseCommentFields(snippet, item.id),
+    replyCount: 0,
+    isReply: true,
+    parentId: parent.id,
+    parentAuthor: parent.author,
+    parentText: parent.text,
+    source: "reply"
+  };
+}
+
+async function fetchCommentLane(videoId, order, targetCount, maxPages = 10) {
   const comments = [];
   let pageToken = "";
   let safety = 0;
 
-  while (comments.length < targetCount && safety < 10) {
+  while (comments.length < targetCount && safety < maxPages) {
     safety += 1;
     const data = await youtubeFetch("commentThreads", {
       part: "snippet",
@@ -84,6 +108,64 @@ export async function fetchCommentsForVideo(videoId, target) {
   });
 
   return [...byId.values()];
+}
+
+export async function fetchAllCommentsForVideo(videoId, target = 10000) {
+  const maxCount = Math.min(Number(target || 10000), 10000);
+  const comments = await fetchCommentLane(videoId, "time", maxCount, Math.ceil(maxCount / 100));
+  const byId = new Map();
+
+  comments.forEach((comment) => {
+    if (comment.id && !byId.has(comment.id)) byId.set(comment.id, comment);
+  });
+
+  return [...byId.values()].slice(0, maxCount);
+}
+
+async function fetchRepliesForComment(parent) {
+  const replies = [];
+  let pageToken = "";
+  let safety = 0;
+
+  while (safety < 100) {
+    safety += 1;
+    const data = await youtubeFetch("comments", {
+      part: "snippet",
+      parentId: parent.id,
+      maxResults: 100,
+      textFormat: "plainText",
+      pageToken
+    });
+
+    replies.push(...(data.items || []).map((item) => normalizeReply(item, parent)));
+    pageToken = data.nextPageToken || "";
+    if (!pageToken) break;
+  }
+
+  return replies;
+}
+
+export async function fetchAllCommentsWithRepliesForVideo(videoId, target = 10000) {
+  const topLevelComments = await fetchAllCommentsForVideo(videoId, target);
+  const commentsWithReplies = [];
+  const parentsWithReplies = topLevelComments.filter((comment) => comment.replyCount > 0);
+  const repliesByParent = new Map();
+  const batchSize = 6;
+
+  for (let index = 0; index < parentsWithReplies.length; index += batchSize) {
+    const batch = parentsWithReplies.slice(index, index + batchSize);
+    const replies = await Promise.all(batch.map((parent) => fetchRepliesForComment(parent)));
+    replies.forEach((parentReplies, batchIndex) => {
+      repliesByParent.set(batch[batchIndex].id, parentReplies);
+    });
+  }
+
+  topLevelComments.forEach((comment) => {
+    commentsWithReplies.push(comment);
+    commentsWithReplies.push(...(repliesByParent.get(comment.id) || []));
+  });
+
+  return commentsWithReplies;
 }
 
 function buildBattleRounds(comments) {
