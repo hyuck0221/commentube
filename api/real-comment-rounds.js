@@ -3,7 +3,7 @@ import { ApiError, extractVideoId, getCache, getQueryParam, handleError, sendJso
 import { fetchCommentsForVideo } from "./comments.js";
 
 const MIN_PLAYABLE_COMMENTS = 100;
-const AI_SAMPLE_COMMENT_COUNT = 200;
+const AI_SAMPLE_COMMENT_COUNT = 50;
 const DEFAULT_AI_BATCH = 40;
 const MAX_CANDIDATE_COUNT = 10;
 const MIN_CANDIDATE_COUNT = 2;
@@ -29,6 +29,41 @@ function sanitizeAiComment(value = "") {
     .replace(/^["']|["']$/g, "")
     .trim()
     .slice(0, 240);
+}
+
+function extractAiCommentText(comment) {
+  if (typeof comment === "string") return comment;
+  if (!comment || typeof comment !== "object") return "";
+  return comment.text || comment.comment || comment.content || comment.message || "";
+}
+
+function normalizeAiCommentPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.comments)) return payload.comments;
+  if (Array.isArray(payload?.fake_comments)) return payload.fake_comments;
+  if (Array.isArray(payload?.fakeComments)) return payload.fakeComments;
+  if (Array.isArray(payload?.ai_comments)) return payload.ai_comments;
+  if (Array.isArray(payload?.aiComments)) return payload.aiComments;
+  return [];
+}
+
+function buildAiCommentsFromPayload(payload, sampleComments) {
+  const seen = new Set(sampleComments.map((comment) => comment.text.trim().toLowerCase()));
+
+  return normalizeAiCommentPayload(payload)
+    .map((comment, index) => ({
+      id: `ai-${Date.now()}-${index}`,
+      text: sanitizeAiComment(extractAiCommentText(comment)),
+      type: "ai"
+    }))
+    .filter((comment) => comment.text.length >= 4)
+    .filter((comment) => {
+      const key = comment.text.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, DEFAULT_AI_BATCH);
 }
 
 function authorKey(comment) {
@@ -93,7 +128,7 @@ async function fetchVideoMeta(videoId) {
 }
 
 function buildPrompt({ video, comments, language, count }) {
-  const samples = comments
+  const samples = shuffle(comments)
     .slice(0, AI_SAMPLE_COMMENT_COUNT)
     .map((comment, index) => `${index + 1}. ${comment.text}`)
     .join("\n");
@@ -112,15 +147,22 @@ ${samples}
 
 Generate ${count} original fake comments in ${languageLabels[language] || "Korean"}.
 Rules:
-- Make them feel like different real viewers wrote them under this specific video.
-- Match the sample comments' casualness, length, rhythm, humor, and abbreviations when appropriate.
+- First infer the video's topic, tone, memorable moments, and likely viewer reactions from the title, channel, description, and samples.
+- Make every comment feel like a real viewer wrote it after watching this specific video, not like a generic compliment.
+- Refer naturally to the video's situation, people, result, joke, opinion, mood, or takeaway when the samples suggest it.
+- Closely match the sample comments' language style: casualness, sentence length, spacing, slang, laughter markers, emoji frequency, punctuation, abbreviations, and typo level.
+- Preserve the comment section's vibe. If samples are dry, be dry. If they are excited, witty, sarcastic, emotional, or fandom-like, reflect that.
+- Write like many different people, with varied reactions and confidence levels. Some comments can be simple, some specific, some funny, some observational.
 - Do not copy, paraphrase too closely, or lightly edit any real sample.
+- Avoid robotic explanations, polished review language, over-complete sentences, and phrases that sound like marketing copy.
+- Avoid vague comments that could fit any video, such as "great video", "so funny", or "this is amazing", unless the samples are mostly that style.
 - Do not mention AI, bots, guessing games, or that the comment is fake.
 - Avoid hate, threats, sexual content, private information, spam, and slurs.
-- Mix short comments, medium comments, reactions, and jokes.
+- Mix short comments, medium comments, reactions, jokes, questions, and tiny personal takes.
 - Do not include timestamps or timecode-like text such as 0:42, 12:03, or 1:02:33.
 - Keep each comment under 180 characters unless the samples are naturally longer.
-Return only valid JSON.
+Return only valid JSON in exactly this shape:
+{"comments":[{"text":"first fake comment"},{"text":"second fake comment"}]}
 `.trim();
 }
 
@@ -151,24 +193,11 @@ async function generateAiComments({ videoId, language, sampleComments, fresh }) 
 
   const payload = await generateStructuredJson({
     prompt: buildPrompt({ video, comments: sampleComments, language, count: DEFAULT_AI_BATCH }),
-    schema
+    schema,
+    validate: (candidatePayload) => buildAiCommentsFromPayload(candidatePayload, sampleComments).length >= 10
   });
 
-  const seen = new Set(sampleComments.map((comment) => comment.text.trim().toLowerCase()));
-  const aiComments = (payload.comments || [])
-    .map((comment, index) => ({
-      id: `ai-${Date.now()}-${index}`,
-      text: sanitizeAiComment(comment.text),
-      type: "ai"
-    }))
-    .filter((comment) => comment.text.length >= 4)
-    .filter((comment) => {
-      const key = comment.text.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, DEFAULT_AI_BATCH);
+  const aiComments = buildAiCommentsFromPayload(payload, sampleComments);
 
   if (aiComments.length < 10) {
     throw new ApiError(502, "AI 댓글 후보를 충분히 만들지 못했습니다. 다시 시도해주세요.");

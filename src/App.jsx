@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Download,
   Eye,
-  EyeOff,
   Filter,
   FileSpreadsheet,
   Globe2,
@@ -60,7 +59,7 @@ const dictionaries = {
     loadingTitle: "댓글 배틀 준비 중",
     loadingCopy: "좋아요가 있는 댓글을 모으고, 비슷한 점수대의 대결 후보를 만들고 있어요.",
     aiLoadingTitle: "AI 댓글 섞는 중",
-    aiLoadingCopy: "실제 댓글 100개 정도의 말투와 분위기를 읽고, 자연스러운 가짜 댓글 묶음을 만들고 있어요.",
+    aiLoadingCopy: "실제 댓글의 말투와 분위기를 읽고, 자연스러운 가짜 댓글 묶음을 만들고 있어요.",
     aiPreparing: "AI 라운드 구성",
     aiLoadingComments: "AI 댓글 생성 중",
     preparingBattle: "라운드 구성",
@@ -110,6 +109,12 @@ const dictionaries = {
     exportLoadingCopy: "다운로드 가능한 댓글 표를 만들고 있어요. 댓글 1만개 이하 영상만 지원합니다.",
     exportPreparing: "표 데이터 구성",
     exportLoadingComments: "댓글 수집 중",
+    exportFilterTitle: "댓글 필터",
+    exportFilterHelp: "조건을 여러 개 추가하면 모든 조건을 만족하는 댓글만 표와 다운로드 파일에 포함됩니다.",
+    downloadScopeTitle: "어떤 댓글을 다운로드할까요?",
+    downloadScopeCopy: "현재 댓글 필터가 적용되어 있습니다. 필터 결과만 받을지, 전체 댓글을 받을지 선택해주세요.",
+    downloadFiltered: "필터 결과",
+    downloadAll: "전체 댓글",
     downloadExcel: "Excel 다운로드",
     downloadCsv: "CSV 다운로드",
     tableAuthor: "작성자",
@@ -127,7 +132,6 @@ const dictionaries = {
     utilityBlocked: "댓글 1만개 이하 영상에서만 사용할 수 있어요.",
     score: "연속 정답",
     round: "라운드",
-    chooseHigher: "좋아요가 더 많다",
     nextRound: "다음 라운드",
     playAgain: "다시 하기",
     correct: "정답",
@@ -181,7 +185,7 @@ const dictionaries = {
     loadingTitle: "Preparing Comment Battle",
     loadingCopy: "Collecting liked comments and matching close battle candidates.",
     aiLoadingTitle: "Mixing AI comments",
-    aiLoadingCopy: "Reading around 100 real comments and creating a natural batch of fake comments.",
+    aiLoadingCopy: "Reading the tone of real comments and creating a natural batch of fake comments.",
     aiPreparing: "Building AI rounds",
     aiLoadingComments: "Generating AI comments",
     preparingBattle: "Building rounds",
@@ -231,6 +235,12 @@ const dictionaries = {
     exportLoadingCopy: "Building a downloadable comment table. Available for videos with 10K comments or fewer.",
     exportPreparing: "Building table data",
     exportLoadingComments: "Collecting comments",
+    exportFilterTitle: "Comment filters",
+    exportFilterHelp: "Add conditions to include only comments that match every condition in the table and downloads.",
+    downloadScopeTitle: "Which comments should be downloaded?",
+    downloadScopeCopy: "Comment filters are currently applied. Choose filtered results or all comments.",
+    downloadFiltered: "Filtered results",
+    downloadAll: "All comments",
     downloadExcel: "Download Excel",
     downloadCsv: "Download CSV",
     tableAuthor: "Author",
@@ -248,7 +258,6 @@ const dictionaries = {
     utilityBlocked: "Available for videos with 10K comments or fewer.",
     score: "Streak",
     round: "Round",
-    chooseHigher: "Has more likes",
     nextRound: "Next round",
     playAgain: "Play again",
     correct: "Correct",
@@ -302,7 +311,7 @@ const dictionaries = {
     loadingTitle: "コメントバトル準備中",
     loadingCopy: "高評価のあるコメントを集め、近いスコアの対戦候補を作っています。",
     aiLoadingTitle: "AIコメントを混ぜています",
-    aiLoadingCopy: "実際のコメント約100件の空気を読み、自然なAIコメントをまとめて作っています。",
+    aiLoadingCopy: "実際のコメントの空気を読み、自然なAIコメントをまとめて作っています。",
     aiPreparing: "AIラウンド生成",
     aiLoadingComments: "AIコメント生成中",
     preparingBattle: "ラウンド生成",
@@ -352,6 +361,12 @@ const dictionaries = {
     exportLoadingCopy: "ダウンロード可能なコメント表を作成しています。コメント1万件以下の動画に対応します。",
     exportPreparing: "表データ生成",
     exportLoadingComments: "コメント収集中",
+    exportFilterTitle: "コメントフィルター",
+    exportFilterHelp: "条件を追加すると、すべて満たすコメントだけが表とダウンロードファイルに含まれます。",
+    downloadScopeTitle: "どのコメントをダウンロードしますか？",
+    downloadScopeCopy: "現在コメントフィルターが適用されています。フィルター結果か全コメントを選択してください。",
+    downloadFiltered: "フィルター結果",
+    downloadAll: "全コメント",
     downloadExcel: "Excelダウンロード",
     downloadCsv: "CSVダウンロード",
     tableAuthor: "投稿者",
@@ -369,7 +384,6 @@ const dictionaries = {
     utilityBlocked: "コメント1万件以下の動画で利用できます。",
     score: "連続正解",
     round: "ラウンド",
-    chooseHigher: "高評価が多い",
     nextRound: "次へ",
     playAgain: "もう一度",
     correct: "正解",
@@ -502,6 +516,12 @@ function filterDrawComments(comments, filters) {
   });
   if (!activeFilters.length) return comments;
   return comments.filter((comment) => activeFilters.every((filter) => matchesDrawFilter(comment, filter)));
+}
+
+function hasActiveFilters(filters) {
+  return filters.some((filter) => {
+    return !textFilterTypes.has(filter.type) || String(filter.value || "").trim();
+  });
 }
 
 function initialLanguage() {
@@ -665,6 +685,9 @@ function App() {
   const [slotSpinning, setSlotSpinning] = useState(false);
   const [drawFilters, setDrawFilters] = useState([]);
   const [drawFilterOpen, setDrawFilterOpen] = useState(false);
+  const [exportFilters, setExportFilters] = useState([]);
+  const [exportFilterOpen, setExportFilterOpen] = useState(false);
+  const [downloadScopePrompt, setDownloadScopePrompt] = useState(null);
   const [exportPage, setExportPage] = useState(1);
   const [exportIncludeReplies, setExportIncludeReplies] = useState(false);
 
@@ -704,6 +727,10 @@ function App() {
   const canUseUtility = useMemo(() => {
     return Boolean(video?.games?.find((game) => game.id === "comment-tools")?.available);
   }, [video]);
+
+  const filteredExportComments = useMemo(() => {
+    return filterDrawComments(utilityComments, exportFilters);
+  }, [utilityComments, exportFilters]);
 
   useEffect(() => {
     if (phase !== "loading") return undefined;
@@ -745,6 +772,9 @@ function App() {
     setSlotComment(null);
     setDrawFilters([]);
     setDrawFilterOpen(false);
+    setExportFilters([]);
+    setExportFilterOpen(false);
+    setDownloadScopePrompt(null);
     setExportPage(1);
     setExportIncludeReplies(false);
     setPhase("idle");
@@ -872,6 +902,23 @@ function App() {
     setTimeout(() => setPhase("export"), 450);
   }
 
+  function requestCommentDownload(format) {
+    if (hasActiveFilters(exportFilters)) {
+      setDownloadScopePrompt(format);
+      return;
+    }
+    downloadCommentFile(format, utilityComments);
+  }
+
+  function downloadCommentFile(format, comments) {
+    if (!video) return;
+    if (format === "excel") {
+      downloadCommentsExcel(comments, video.videoId, t);
+      return;
+    }
+    downloadCommentsCsv(comments, video.videoId, t);
+  }
+
   function drawRandomComment() {
     if (slotSpinning || !utilityComments.length) return;
     const drawn = new Set(drawnIds);
@@ -978,6 +1025,9 @@ function App() {
     setSlotComment(null);
     setDrawFilters([]);
     setDrawFilterOpen(false);
+    setExportFilters([]);
+    setExportFilterOpen(false);
+    setDownloadScopePrompt(null);
     setExportPage(1);
     setExportIncludeReplies(false);
     setRoundIndex(0);
@@ -1109,11 +1159,30 @@ function App() {
           t={t}
           video={video}
           comments={utilityComments}
+          filters={exportFilters}
+          setFilters={setExportFilters}
+          filterOpen={exportFilterOpen}
+          setFilterOpen={setExportFilterOpen}
           page={exportPage}
           setPage={setExportPage}
-          onDownloadCsv={() => downloadCommentsCsv(utilityComments, video.videoId, t)}
-          onDownloadExcel={() => downloadCommentsExcel(utilityComments, video.videoId, t)}
+          onFiltersChanged={() => setExportPage(1)}
+          onDownloadCsv={() => requestCommentDownload("csv")}
+          onDownloadExcel={() => requestCommentDownload("excel")}
         />
+        {downloadScopePrompt ? (
+          <DownloadScopeConfirm
+            t={t}
+            onCancel={() => setDownloadScopePrompt(null)}
+            onFiltered={() => {
+              downloadCommentFile(downloadScopePrompt, filteredExportComments);
+              setDownloadScopePrompt(null);
+            }}
+            onAll={() => {
+              downloadCommentFile(downloadScopePrompt, utilityComments);
+              setDownloadScopePrompt(null);
+            }}
+          />
+        ) : null}
         {leaveConfirmOpen ? <LeaveConfirm t={t} onCancel={() => setLeaveConfirmOpen(false)} onConfirm={goHome} /> : null}
         {settingsOpen ? (
           <SettingsDialog
@@ -1387,6 +1456,26 @@ function LeaveConfirm({ t, onCancel, onConfirm }) {
   );
 }
 
+function DownloadScopeConfirm({ t, onCancel, onFiltered, onAll }) {
+  return (
+    <div className="modal-backdrop show">
+      <div className="confirm-modal">
+        <h2>{t.downloadScopeTitle}</h2>
+        <p>{t.downloadScopeCopy}</p>
+        <div className="confirm-actions">
+          <button className="ghost-button" onClick={onCancel}>
+            {t.close}
+          </button>
+          <button className="ghost-button" onClick={onAll}>
+            {t.downloadAll}
+          </button>
+          <button onClick={onFiltered}>{t.downloadFiltered}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoadingScreen({ t, video, progress, title, copy, kicker, label }) {
   return (
     <section className="loading-stage">
@@ -1635,22 +1724,41 @@ function DrawFilterBuilder({ t, filters, setFilters, onFiltersChanged, matchedCo
   );
 }
 
-function CommentExportTool({ t, video, comments, page, setPage, onDownloadCsv, onDownloadExcel }) {
+function CommentExportTool({
+  t,
+  video,
+  comments,
+  filters,
+  setFilters,
+  filterOpen,
+  setFilterOpen,
+  page,
+  setPage,
+  onFiltersChanged,
+  onDownloadCsv,
+  onDownloadExcel
+}) {
   const pageSize = 25;
-  const totalPages = Math.max(Math.ceil(comments.length / pageSize), 1);
+  const filteredComments = filterDrawComments(comments, filters);
+  const totalPages = Math.max(Math.ceil(filteredComments.length / pageSize), 1);
   const currentPage = Math.min(Math.max(page, 1), totalPages);
-  const pageItems = comments.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const pageItems = filteredComments.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <section className="tool-arena export-arena">
       <div className="battle-header export-head">
         <div>
           <span className="round-chip">
-            {t.fetched} {number(comments.length)} · {t.pageLabel} {currentPage}/{totalPages}
+            {t.fetched} {number(comments.length)} · {t.matchedComments} {number(filteredComments.length)} · {t.pageLabel} {currentPage}/
+            {totalPages}
           </span>
           <h2>{t.exportTitle}</h2>
         </div>
-        <div className="download-actions">
+        <div className="download-actions export-toolbar">
+          <button className="outline-button" type="button" onClick={() => setFilterOpen((value) => !value)}>
+            <Filter size={18} />
+            {t.exportFilterTitle}
+          </button>
           <button onClick={onDownloadExcel}>
             <FileSpreadsheet size={18} />
             {t.downloadExcel}
@@ -1669,6 +1777,16 @@ function CommentExportTool({ t, video, comments, page, setPage, onDownloadCsv, o
           <strong>{video.title}</strong>
         </div>
       </div>
+
+      {filterOpen ? (
+        <DrawFilterBuilder
+          t={{ ...t, drawFilterTitle: t.exportFilterTitle, drawFilterHelp: t.exportFilterHelp }}
+          filters={filters}
+          setFilters={setFilters}
+          onFiltersChanged={onFiltersChanged}
+          matchedCount={filteredComments.length}
+        />
+      ) : null}
 
       <div className="comment-table-wrap">
         <table className="comment-table">
@@ -1757,7 +1875,6 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
           winner={winner}
           revealed={revealed}
           maskAuthors={maskAuthors}
-          t={t}
           onChoose={onChoose}
           onOpenTimestamp={setActiveTimestamp}
         />
@@ -1771,7 +1888,6 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
           winner={winner}
           revealed={revealed}
           maskAuthors={maskAuthors}
-          t={t}
           onChoose={onChoose}
           onOpenTimestamp={setActiveTimestamp}
         />
@@ -1874,12 +1990,7 @@ function RealCommentChoice({ comment, selected, answer, revealed, maskAuthors, t
           <strong className={isAnswer ? "ai-tag" : "real-tag"}>
             {isAnswer ? t.aiComment : t.realReveal}
           </strong>
-        ) : (
-          <span className="hidden-likes">
-            <Eye size={16} />
-            {t.findAiComment}
-          </span>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -1922,7 +2033,7 @@ function TimestampViewer({ video, timestamp, onClose }) {
   );
 }
 
-function CommentChoice({ side, comment, selected, winner, revealed, maskAuthors, t, onChoose, onOpenTimestamp }) {
+function CommentChoice({ side, comment, selected, winner, revealed, maskAuthors, onChoose, onOpenTimestamp }) {
   const isSelected = selected === side;
   const isWinner = winner === side;
   return (
@@ -1949,12 +2060,7 @@ function CommentChoice({ side, comment, selected, winner, revealed, maskAuthors,
             <Check size={17} />
             {number(comment.likeCount)}
           </strong>
-        ) : (
-          <span className="hidden-likes">
-            <EyeOff size={16} />
-            {t.chooseHigher}
-          </span>
-        )}
+        ) : null}
       </div>
     </div>
   );

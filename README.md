@@ -31,7 +31,7 @@ Commentube는 YouTube 영상 링크 하나로 영상 정보를 분석하고, 댓
 실제 댓글 사이에 AI가 작성한 댓글 하나를 숨겨두고, 사용자가 AI 댓글을 찾아내는 게임입니다.
 
 - 시작 전 후보 개수를 `2~10개` 중 선택할 수 있습니다.
-- 실제 댓글 약 200개를 AI 학습 샘플로 전달해 영상 댓글 분위기를 반영합니다.
+- 실제 댓글 최대 50개를 AI 학습 샘플로 전달해 영상 댓글 분위기를 반영합니다.
 - AI 댓글에는 타임스탬프를 넣지 않도록 지시합니다.
 - AI 댓글의 작성자명은 실제 댓글 작성자 중 하나를 빌려 사용합니다.
 - 같은 라운드 안에서는 작성자명이 중복되지 않도록 구성합니다.
@@ -75,6 +75,8 @@ npm run dev:vercel
 
 ```env
 YOUTUBE_API_KEYS=youtube_key_one,youtube_key_two
+GROQ_API_KEY=groq_key
+GROQ_MODEL=llama-3.1-8b-instant
 GEMINI_API_KEYS=gemini_key_one,gemini_key_two
 GEMINI_MODEL=gemini-2.5-flash-lite
 ```
@@ -83,11 +85,18 @@ GEMINI_MODEL=gemini-2.5-flash-lite
 
 `YOUTUBE_API_KEYS`는 콤마로 여러 개를 등록할 수 있습니다. quota 또는 key 오류가 발생하면 다음 key로 재시도합니다.
 
-### Gemini API
+### AI API
 
-`GEMINI_API_KEYS`도 콤마로 여러 개를 등록할 수 있습니다. AI 댓글 생성 요청은 등록된 key를 순환하며 사용합니다.
+AI 댓글 생성은 Groq를 1순위로 사용하고, Groq 요청이 실패하면 Gemini로 자동 fallback합니다.
 
-저렴한 모델을 우선할 때는 AI Studio에서 사용 가능한 모델 ID를 `GEMINI_MODEL`에 넣으면 됩니다.
+`GROQ_API_KEY`는 하나만 등록하면 됩니다. Groq 모델은 `GROQ_MODEL`로 바꿀 수 있으며, 기본값은 속도와 비용이 좋은 `llama-3.1-8b-instant`입니다.
+
+```env
+GROQ_API_KEY=groq_key
+GROQ_MODEL=llama-3.1-8b-instant
+```
+
+`GEMINI_API_KEYS`는 fallback 용도이며 콤마로 여러 개를 등록할 수 있습니다. Gemini fallback 안에서는 등록된 key를 순환하며 사용합니다.
 
 ```env
 GEMINI_MODEL=gemini-2.5-flash-lite
@@ -99,7 +108,7 @@ Gemma 계열을 사용할 경우 모델 ID는 보통 아래처럼 `-it`가 붙�
 GEMINI_MODEL=gemma-3-4b-it
 ```
 
-단, 현재 AI 댓글 생성 코드는 JSON 응답을 안정적으로 받기 위해 Gemini 구조화 출력 옵션을 사용합니다. Gemma 모델에서 구조화 출력 옵션이 거절되면 Gemini Flash Lite 계열을 사용하거나, Gemma 전용 JSON 파싱 fallback을 추가해야 합니다.
+단, Gemini fallback은 JSON 응답을 안정적으로 받기 위해 Gemini 구조화 출력 옵션을 사용합니다. Gemma 모델에서 구조화 출력 옵션이 거절되면 Gemini Flash Lite 계열을 사용하거나, Gemma 전용 JSON 파싱 fallback을 추가해야 합니다.
 
 ## 배포
 
@@ -107,11 +116,13 @@ Vercel 배포 시에는 프로젝트 설정의 Environment Variables에 동일�
 
 ```env
 YOUTUBE_API_KEYS=youtube_key_one,youtube_key_two
+GROQ_API_KEY=groq_key
+GROQ_MODEL=llama-3.1-8b-instant
 GEMINI_API_KEYS=gemini_key_one,gemini_key_two
 GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
-프론트엔드는 Vite로 빌드되고, `/api` 디렉터리의 서버리스 함수가 YouTube와 Gemini 요청을 처리합니다.
+프론트엔드는 Vite로 빌드되고, `/api` 디렉터리의 서버리스 함수가 YouTube, Groq, Gemini 요청을 처리합니다.
 
 ## API 흐름
 

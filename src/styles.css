@@ -1057,6 +1057,17 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.download-actions .outline-button {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #e8f1ff;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.download-actions .outline-button:hover {
+  border-color: rgba(56, 232, 255, 0.58);
+  background: rgba(56, 232, 255, 0.09);
+}
+
 .download-actions button,
 .pager button {
   min-height: 42px;
@@ -1472,8 +1483,7 @@ button:disabled {
   white-space: nowrap;
 }
 
-.comment-meta strong,
-.hidden-likes {
+.comment-meta strong {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1493,11 +1503,6 @@ button:disabled {
 .comment-meta strong.ai-tag {
   color: #061019;
   background: var(--aqua);
-}
-
-.hidden-likes {
-  color: #dbe4f8;
-  background: rgba(255, 255, 255, 0.1);
 }
 
 .result-strip {
@@ -2160,8 +2165,7 @@ input[type="checkbox"] {
     flex-direction: column;
   }
 
-  .comment-meta strong,
-  .hidden-likes {
+  .comment-meta strong {
     justify-content: center;
   }
 
