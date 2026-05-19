@@ -20,6 +20,10 @@ import {
   X
 } from "lucide-react";
 
+const RECAPTCHA_ACTION = "analyze_video";
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
+let recaptchaScriptPromise = null;
+
 const dictionaries = {
   ko: {
     brand: "Commentube",
@@ -524,6 +528,42 @@ function hasActiveFilters(filters) {
   });
 }
 
+function loadRecaptcha(siteKey) {
+  if (!siteKey) return Promise.resolve(null);
+  if (window.grecaptcha) return Promise.resolve(window.grecaptcha);
+  if (recaptchaScriptPromise) return recaptchaScriptPromise;
+
+  recaptchaScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://www.google.com/recaptcha/api.js?render=${encodeURIComponent(siteKey)}`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve(window.grecaptcha);
+    script.onerror = () => {
+      recaptchaScriptPromise = null;
+      reject(new Error("reCAPTCHA를 불러오지 못했습니다. 잠시 후 다시 시도해주세요."));
+    };
+    document.head.appendChild(script);
+  });
+
+  return recaptchaScriptPromise;
+}
+
+async function createRecaptchaToken() {
+  if (!RECAPTCHA_SITE_KEY) return "";
+  const grecaptcha = await loadRecaptcha(RECAPTCHA_SITE_KEY);
+  if (!grecaptcha) return "";
+
+  return new Promise((resolve, reject) => {
+    grecaptcha.ready(() => {
+      grecaptcha
+        .execute(RECAPTCHA_SITE_KEY, { action: RECAPTCHA_ACTION })
+        .then(resolve)
+        .catch(() => reject(new Error("reCAPTCHA 검증을 시작하지 못했습니다. 잠시 후 다시 시도해주세요.")));
+    });
+  });
+}
+
 function initialLanguage() {
   const saved = localStorage.getItem("commentube-language");
   if (saved && dictionaries[saved]) return saved;
@@ -782,7 +822,14 @@ function App() {
     setGameType("battle");
 
     try {
-      const payload = await requestJson(`/api/video?url=${encodeURIComponent(url.trim())}`);
+      const recaptchaToken = await createRecaptchaToken();
+      const params = new URLSearchParams({
+        url: url.trim(),
+        recaptchaAction: RECAPTCHA_ACTION
+      });
+      if (recaptchaToken) params.set("recaptchaToken", recaptchaToken);
+
+      const payload = await requestJson(`/api/video?${params.toString()}`);
       setVideo(payload);
     } catch (err) {
       setError(err.message || t.apiError);

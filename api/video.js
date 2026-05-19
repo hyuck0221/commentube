@@ -10,9 +10,14 @@ import {
   setCache,
   youtubeFetch
 } from "./_youtube.js";
+import { verifyRecaptcha } from "./_recaptcha.js";
+
+const RECAPTCHA_ACTION = "analyze_video";
 
 export default async function handler(req, res) {
   try {
+    await verifyRecaptcha(req, RECAPTCHA_ACTION);
+
     const rawUrl = getQueryParam(req, "url") || getQueryParam(req, "videoId");
     const videoId = extractVideoId(rawUrl);
     if (!videoId) throw new ApiError(400, "올바른 YouTube 영상 링크를 입력해주세요.");

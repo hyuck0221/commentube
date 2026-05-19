@@ -75,6 +75,9 @@ npm run dev:vercel
 
 ```env
 YOUTUBE_API_KEYS=youtube_key_one,youtube_key_two
+VITE_RECAPTCHA_SITE_KEY=recaptcha_v3_site_key
+RECAPTCHA_SECRET_KEY=recaptcha_v3_secret_key
+RECAPTCHA_MIN_SCORE=0.5
 GROQ_API_KEY=groq_key
 GROQ_MODEL=llama-3.1-8b-instant
 GEMINI_API_KEYS=gemini_key_one,gemini_key_two
@@ -84,6 +87,18 @@ GEMINI_MODEL=gemini-2.5-flash-lite
 ### YouTube API
 
 `YOUTUBE_API_KEYS`는 콤마로 여러 개를 등록할 수 있습니다. quota 또는 key 오류가 발생하면 다음 key로 재시도합니다.
+
+### reCAPTCHA v3
+
+영상 분석 버튼을 누르는 시점에 reCAPTCHA v3 토큰을 발급하고, `/api/video`에서 Google `siteverify` API로 검증합니다.
+
+```env
+VITE_RECAPTCHA_SITE_KEY=recaptcha_v3_site_key
+RECAPTCHA_SECRET_KEY=recaptcha_v3_secret_key
+RECAPTCHA_MIN_SCORE=0.5
+```
+
+`VITE_RECAPTCHA_SITE_KEY`는 프론트에서 사용하는 public key이고, `RECAPTCHA_SECRET_KEY`는 Vercel 서버리스 함수에서만 사용하는 secret key입니다. `RECAPTCHA_SECRET_KEY`가 없으면 로컬 개발 편의를 위해 검증을 건너뜁니다.
 
 ### AI API
 
@@ -116,6 +131,9 @@ Vercel 배포 시에는 프로젝트 설정의 Environment Variables에 동일�
 
 ```env
 YOUTUBE_API_KEYS=youtube_key_one,youtube_key_two
+VITE_RECAPTCHA_SITE_KEY=recaptcha_v3_site_key
+RECAPTCHA_SECRET_KEY=recaptcha_v3_secret_key
+RECAPTCHA_MIN_SCORE=0.5
 GROQ_API_KEY=groq_key
 GROQ_MODEL=llama-3.1-8b-instant
 GEMINI_API_KEYS=gemini_key_one,gemini_key_two
