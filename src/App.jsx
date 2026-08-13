@@ -19,6 +19,7 @@ import {
   Trophy,
   X
 } from "lucide-react";
+import { legalDocuments } from "./legalContent.js";
 
 const RECAPTCHA_ACTION = "analyze_video";
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
@@ -42,6 +43,11 @@ const dictionaries = {
     normal: "보통",
     dramatic: "극적",
     close: "닫기",
+    privacyPolicy: "개인정보처리방침",
+    termsOfUse: "이용약관",
+    legalUpdated: "시행일",
+    legalNavLabel: "법적 고지",
+    footerCopy: "댓글을 읽고, 플레이하고, 기록하세요.",
     leaveGameTitle: "게임을 나가시겠습니까?",
     leaveGameCopy: "현재 진행 중인 라운드와 점수는 초기화됩니다.",
     stay: "계속하기",
@@ -168,6 +174,11 @@ const dictionaries = {
     normal: "Normal",
     dramatic: "Dramatic",
     close: "Close",
+    privacyPolicy: "Privacy Policy",
+    termsOfUse: "Terms of Use",
+    legalUpdated: "Effective",
+    legalNavLabel: "Legal",
+    footerCopy: "Read, play, and keep the reactions.",
     leaveGameTitle: "Leave the game?",
     leaveGameCopy: "Your current round and streak will be reset.",
     stay: "Keep playing",
@@ -294,6 +305,11 @@ const dictionaries = {
     normal: "普通",
     dramatic: "演出あり",
     close: "閉じる",
+    privacyPolicy: "プライバシーポリシー",
+    termsOfUse: "利用規約",
+    legalUpdated: "施行日",
+    legalNavLabel: "法的情報",
+    footerCopy: "コメントを読み、遊び、記録しよう。",
     leaveGameTitle: "ゲームを終了しますか？",
     leaveGameCopy: "現在のラウンドとスコアはリセットされます。",
     stay: "続ける",
@@ -571,6 +587,12 @@ function initialLanguage() {
   return dictionaries[browser] ? browser : "ko";
 }
 
+function legalPageFromHash() {
+  if (typeof window === "undefined") return null;
+  const page = window.location.hash.replace(/^#/, "");
+  return page === "privacy" || page === "terms" ? page : null;
+}
+
 function escapeCsv(value = "") {
   return `"${String(value).replace(/"/g, '""')}"`;
 }
@@ -697,6 +719,7 @@ function downloadCommentsExcel(comments, videoId, t) {
 function App() {
   const [language, setLanguage] = useState(initialLanguage);
   const t = dictionaries[language];
+  const [legalPage, setLegalPage] = useState(legalPageFromHash);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [maskAuthors, setMaskAuthors] = useState(true);
   const [revealSpeed, setRevealSpeed] = useState("normal");
@@ -734,6 +757,16 @@ function App() {
   useEffect(() => {
     localStorage.setItem("commentube-language", language);
   }, [language]);
+
+  useEffect(() => {
+    const syncLegalPage = () => setLegalPage(legalPageFromHash());
+    window.addEventListener("hashchange", syncLegalPage);
+    window.addEventListener("popstate", syncLegalPage);
+    return () => {
+      window.removeEventListener("hashchange", syncLegalPage);
+      window.removeEventListener("popstate", syncLegalPage);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1084,7 +1117,24 @@ function App() {
     setLeaveConfirmOpen(false);
   }
 
+  function openLegalPage(page) {
+    if (!legalDocuments[page]) return;
+    window.history.pushState({}, "", `${window.location.pathname}${window.location.search}#${page}`);
+    setLegalPage(page);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  function closeLegalPage() {
+    window.history.pushState({}, "", `${window.location.pathname}${window.location.search}`);
+    setLegalPage(null);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
   function handleBrandClick() {
+    if (legalPage) {
+      closeLegalPage();
+      return;
+    }
     if (phase === "battle" || phase === "real" || phase === "draw" || phase === "export" || phase === "gameover" || phase === "loading") {
       setLeaveConfirmOpen(true);
       return;
@@ -1123,6 +1173,33 @@ function App() {
     kicker: t.preparingBattle,
     label: t.loadingComments
   };
+
+  if (legalPage) {
+    return (
+      <main className="app-shell legal-shell">
+        <div className="speed-lines" />
+        <Topbar t={t} onOpenSettings={() => setSettingsOpen(true)} onBrandClick={handleBrandClick} compact />
+        <LegalDocument
+          document={legalDocuments[legalPage]}
+          t={t}
+          currentPage={legalPage}
+          onOpenPage={openLegalPage}
+        />
+        {settingsOpen ? (
+          <SettingsDialog
+            t={t}
+            language={language}
+            setLanguage={setLanguage}
+            maskAuthors={maskAuthors}
+            setMaskAuthors={setMaskAuthors}
+            revealSpeed={revealSpeed}
+            setRevealSpeed={setRevealSpeed}
+            onClose={() => setSettingsOpen(false)}
+          />
+        ) : null}
+      </main>
+    );
+  }
 
   if (phase === "loading") {
     return (
@@ -1312,7 +1389,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell home-shell">
       <div className="speed-lines" />
       <Topbar t={t} onOpenSettings={() => setSettingsOpen(true)} onBrandClick={handleBrandClick} />
 
@@ -1454,6 +1531,8 @@ function App() {
         </section>
       ) : null}
 
+      <SiteFooter t={t} onOpenLegal={openLegalPage} />
+
       {settingsOpen ? (
         <SettingsDialog
           t={t}
@@ -1483,6 +1562,97 @@ function Topbar({ t, onOpenSettings, onBrandClick, compact = false }) {
         <Settings size={21} />
       </button>
     </header>
+  );
+}
+
+function SiteFooter({ t, onOpenLegal }) {
+  function open(event, page) {
+    event.preventDefault();
+    onOpenLegal(page);
+  }
+
+  return (
+    <footer className="site-footer">
+      <div className="site-footer-copy">
+        <strong>Commentube</strong>
+        <span>{t.footerCopy}</span>
+      </div>
+      <nav className="site-footer-nav" aria-label={t.legalNavLabel}>
+        <a href="#privacy" onClick={(event) => open(event, "privacy")}>
+          {t.privacyPolicy}
+        </a>
+        <span aria-hidden="true">·</span>
+        <a href="#terms" onClick={(event) => open(event, "terms")}>
+          {t.termsOfUse}
+        </a>
+      </nav>
+    </footer>
+  );
+}
+
+function LegalDocument({ document, t, currentPage, onOpenPage }) {
+  const otherPage = currentPage === "privacy" ? "terms" : "privacy";
+  const otherLabel = otherPage === "privacy" ? t.privacyPolicy : t.termsOfUse;
+
+  return (
+    <section className="legal-page">
+      <div className="legal-header">
+        <div className="legal-heading">
+          <span className="legal-eyebrow">{document.eyebrow}</span>
+          <h1>{document.title}</h1>
+          <p>{document.intro}</p>
+        </div>
+      </div>
+
+      <div className="legal-meta">
+        <span>
+          {t.legalUpdated} {document.effectiveDate}
+        </span>
+        <span>Commentube 운영팀</span>
+      </div>
+
+      <article className="legal-content">
+        {document.sections.map((section) => (
+          <section className="legal-section" key={section.heading}>
+            <h2>{section.heading}</h2>
+            {section.paragraphs?.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+            {section.facts?.length ? (
+              <dl className="legal-facts">
+                {section.facts.map((fact) => (
+                  <div key={fact.label}>
+                    <dt>{fact.label}</dt>
+                    <dd>{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            {section.bullets?.length ? (
+              <ul>
+                {section.bullets.map((bullet) => <li key={bullet}>{bullet}</li>)}
+              </ul>
+            ) : null}
+            {section.links?.length ? (
+              <div className="legal-link-list">
+                {section.links.map((link) => (
+                  <a href={link.url} key={link.url} target="_blank" rel="noreferrer">
+                    {link.label}
+                    <ArrowRight size={14} />
+                  </a>
+                ))}
+              </div>
+            ) : null}
+          </section>
+        ))}
+      </article>
+
+      <div className="legal-switcher">
+        <span>{t.legalNavLabel}</span>
+        <button type="button" onClick={() => onOpenPage(otherPage)}>
+          {otherLabel}
+          <ArrowRight size={16} />
+        </button>
+      </div>
+    </section>
   );
 }
 
