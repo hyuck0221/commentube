@@ -45,7 +45,7 @@ Commentube는 YouTube 영상 링크 하나로 영상 정보를 분석하고, 댓
 - YouTube API key 다중 등록 및 라운드로빈 사용
 - `relevance`, `time` 정렬 댓글을 병렬 수집 후 중복 제거
 - 영상별 댓글 결과 30분 인메모리 캐싱
-- Gemini API key 다중 등록 및 라운드로빈 사용
+- Google AI (Gemini) API key 다중 등록 및 라운드로빈 사용
 - 작성자 마스킹, 공개 속도, 언어 설정 제공
 - 한국어, 영어, 일본어 UI 지원
 - PC와 모바일 반응형 UI
@@ -78,8 +78,6 @@ YOUTUBE_API_KEYS=youtube_key_one,youtube_key_two
 VITE_RECAPTCHA_SITE_KEY=recaptcha_v3_site_key
 RECAPTCHA_SECRET_KEY=recaptcha_v3_secret_key
 RECAPTCHA_MIN_SCORE=0.5
-GROQ_API_KEY=groq_key
-GROQ_MODEL=llama-3.1-8b-instant
 GEMINI_API_KEYS=gemini_key_one,gemini_key_two
 GEMINI_MODEL=gemini-2.5-flash-lite
 ```
@@ -100,18 +98,11 @@ RECAPTCHA_MIN_SCORE=0.5
 
 `VITE_RECAPTCHA_SITE_KEY`는 프론트에서 사용하는 public key이고, `RECAPTCHA_SECRET_KEY`는 Vercel 서버리스 함수에서만 사용하는 secret key입니다. `RECAPTCHA_SECRET_KEY`가 없으면 로컬 개발 편의를 위해 검증을 건너뜁니다.
 
-### AI API
+### Google AI (Gemini) API
 
-AI 댓글 생성은 Groq를 1순위로 사용하고, Groq 요청이 실패하면 Gemini로 자동 fallback합니다.
+AI 댓글 생성은 Google AI의 Gemini API만 사용합니다.
 
-`GROQ_API_KEY`는 하나만 등록하면 됩니다. Groq 모델은 `GROQ_MODEL`로 바꿀 수 있으며, 기본값은 속도와 비용이 좋은 `llama-3.1-8b-instant`입니다.
-
-```env
-GROQ_API_KEY=groq_key
-GROQ_MODEL=llama-3.1-8b-instant
-```
-
-`GEMINI_API_KEYS`는 fallback 용도이며 콤마로 여러 개를 등록할 수 있습니다. Gemini fallback 안에서는 등록된 key를 순환하며 사용합니다.
+`GEMINI_API_KEYS`는 콤마로 여러 개를 등록할 수 있으며, 요청마다 등록된 key를 라운드로빈 방식으로 사용합니다.
 
 ```env
 GEMINI_MODEL=gemini-2.5-flash-lite
@@ -123,7 +114,7 @@ Gemma 계열을 사용할 경우 모델 ID는 보통 아래처럼 `-it`가 붙�
 GEMINI_MODEL=gemma-3-4b-it
 ```
 
-단, Gemini fallback은 JSON 응답을 안정적으로 받기 위해 Gemini 구조화 출력 옵션을 사용합니다. Gemma 모델에서 구조화 출력 옵션이 거절되면 Gemini Flash Lite 계열을 사용하거나, Gemma 전용 JSON 파싱 fallback을 추가해야 합니다.
+Gemini는 JSON 응답을 안정적으로 받기 위해 구조화 출력 옵션을 사용합니다. Gemma 모델에서 구조화 출력 옵션이 거절되면 Gemini Flash Lite 계열을 사용하거나, Gemma 전용 JSON 파싱 대체 처리를 추가해야 합니다.
 
 ## 배포
 
@@ -134,13 +125,11 @@ YOUTUBE_API_KEYS=youtube_key_one,youtube_key_two
 VITE_RECAPTCHA_SITE_KEY=recaptcha_v3_site_key
 RECAPTCHA_SECRET_KEY=recaptcha_v3_secret_key
 RECAPTCHA_MIN_SCORE=0.5
-GROQ_API_KEY=groq_key
-GROQ_MODEL=llama-3.1-8b-instant
 GEMINI_API_KEYS=gemini_key_one,gemini_key_two
 GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
-프론트엔드는 Vite로 빌드되고, `/api` 디렉터리의 서버리스 함수가 YouTube, Groq, Gemini 요청을 처리합니다.
+프론트엔드는 Vite로 빌드되고, `/api` 디렉터리의 서버리스 함수가 YouTube와 Google AI Gemini 요청을 처리합니다.
 
 ## API 흐름
 
