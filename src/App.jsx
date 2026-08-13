@@ -7,6 +7,7 @@ import {
   Eye,
   Filter,
   FileSpreadsheet,
+  Github,
   Globe2,
   Loader2,
   Play,
@@ -23,6 +24,9 @@ import { legalDocuments } from "./legalContent.js";
 
 const RECAPTCHA_ACTION = "analyze_video";
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "";
+const GITHUB_REPOSITORY_URL = "https://github.com/hyuck0221/commentube";
+const GITHUB_REPOSITORY_API_URL = "https://api.github.com/repos/hyuck0221/commentube";
+const GITHUB_STARS_BADGE_API_URL = "https://img.shields.io/github/stars/hyuck0221/commentube.json";
 let recaptchaScriptPromise = null;
 
 const dictionaries = {
@@ -45,6 +49,9 @@ const dictionaries = {
     close: "닫기",
     privacyPolicy: "개인정보처리방침",
     termsOfUse: "이용약관",
+    support: "후원하기",
+    github: "GitHub",
+    stars: "스타",
     legalUpdated: "시행일",
     legalNavLabel: "법적 고지",
     footerCopy: "댓글을 읽고, 플레이하고, 기록하세요.",
@@ -176,6 +183,9 @@ const dictionaries = {
     close: "Close",
     privacyPolicy: "Privacy Policy",
     termsOfUse: "Terms of Use",
+    support: "Support",
+    github: "GitHub",
+    stars: "stars",
     legalUpdated: "Effective",
     legalNavLabel: "Legal",
     footerCopy: "Read, play, and keep the reactions.",
@@ -307,6 +317,9 @@ const dictionaries = {
     close: "閉じる",
     privacyPolicy: "プライバシーポリシー",
     termsOfUse: "利用規約",
+    support: "支援する",
+    github: "GitHub",
+    stars: "スター",
     legalUpdated: "施行日",
     legalNavLabel: "法的情報",
     footerCopy: "コメントを読み、遊び、記録しよう。",
@@ -719,6 +732,7 @@ function downloadCommentsExcel(comments, videoId, t) {
 function App() {
   const [language, setLanguage] = useState(initialLanguage);
   const t = dictionaries[language];
+  const [githubStars, setGithubStars] = useState(null);
   const [legalPage, setLegalPage] = useState(legalPageFromHash);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [maskAuthors, setMaskAuthors] = useState(true);
@@ -757,6 +771,51 @@ function App() {
   useEffect(() => {
     localStorage.setItem("commentube-language", language);
   }, [language]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    function parseGithubStars(payload) {
+      const value = payload?.stargazers_count ?? payload?.value ?? payload?.message;
+      if (value === undefined || value === null) return null;
+
+      const numericValue = Number(value);
+      if (Number.isFinite(numericValue)) return number(numericValue);
+
+      const textValue = String(value).trim();
+      return textValue && textValue !== "N/A" ? textValue : null;
+    }
+
+    async function loadGithubStars() {
+      const endpoints = [
+        {
+          url: GITHUB_REPOSITORY_API_URL,
+          options: { headers: { Accept: "application/vnd.github+json" } }
+        },
+        { url: GITHUB_STARS_BADGE_API_URL, options: {} }
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint.url, endpoint.options);
+          if (!response.ok) continue;
+
+          const stars = parseGithubStars(await response.json());
+          if (!cancelled && stars !== null) {
+            setGithubStars(stars);
+            return;
+          }
+        } catch {
+          // Try the next public endpoint when one provider is unavailable.
+        }
+      }
+    }
+
+    loadGithubStars();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const syncLegalPage = () => setLegalPage(legalPageFromHash());
@@ -1531,7 +1590,7 @@ function App() {
         </section>
       ) : null}
 
-      <SiteFooter t={t} onOpenLegal={openLegalPage} />
+      <SiteFooter t={t} githubStars={githubStars} onOpenLegal={openLegalPage} />
 
       {settingsOpen ? (
         <SettingsDialog
@@ -1565,7 +1624,7 @@ function Topbar({ t, onOpenSettings, onBrandClick, compact = false }) {
   );
 }
 
-function SiteFooter({ t, onOpenLegal }) {
+function SiteFooter({ t, githubStars, onOpenLegal }) {
   function open(event, page) {
     event.preventDefault();
     onOpenLegal(page);
@@ -1574,18 +1633,45 @@ function SiteFooter({ t, onOpenLegal }) {
   return (
     <footer className="site-footer">
       <div className="site-footer-copy">
-        <strong>Commentube</strong>
-        <span>{t.footerCopy}</span>
+        <div className="site-footer-brandline">
+          <strong>Commentube</strong>
+          <span>{t.footerCopy}</span>
+        </div>
+        <div className="site-footer-links">
+          <nav className="site-footer-nav" aria-label={t.legalNavLabel}>
+            <a href="#privacy" onClick={(event) => open(event, "privacy")}>
+              {t.privacyPolicy}
+            </a>
+            <span aria-hidden="true">·</span>
+            <a href="#terms" onClick={(event) => open(event, "terms")}>
+              {t.termsOfUse}
+            </a>
+          </nav>
+          <div className="site-footer-actions">
+            <a
+              className="site-footer-support"
+              href="https://fairy.hada.io/@commentube"
+              target="_blank"
+              rel="noreferrer"
+            >
+              {t.support}
+            </a>
+            <a
+              className="site-footer-github"
+              href={GITHUB_REPOSITORY_URL}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={t.github}
+              title={t.github}
+            >
+              <Github size={16} aria-hidden="true" />
+            </a>
+            <span className="site-footer-stars" aria-label={`${githubStars ?? "—"} ${t.stars}`}>
+              <span>{githubStars ?? "—"}</span>
+            </span>
+          </div>
+        </div>
       </div>
-      <nav className="site-footer-nav" aria-label={t.legalNavLabel}>
-        <a href="#privacy" onClick={(event) => open(event, "privacy")}>
-          {t.privacyPolicy}
-        </a>
-        <span aria-hidden="true">·</span>
-        <a href="#terms" onClick={(event) => open(event, "terms")}>
-          {t.termsOfUse}
-        </a>
-      </nav>
     </footer>
   );
 }
