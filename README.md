@@ -45,7 +45,19 @@ Commentube는 YouTube 영상 링크 하나로 영상 정보를 분석하고, 댓
 - YouTube API key 다중 등록 및 라운드로빈 사용
 - `relevance`, `time` 정렬 댓글을 병렬 수집 후 중복 제거
 - 영상별 댓글 결과 30분 인메모리 캐싱
-- Google AI (Gemini) API key 다중 등록 및 라운드로빈 사용
+- Google AI (Gemini) 프리티어 API key 우선 사용 및 결제용 API key fallback
 - 작성자 마스킹, 공개 속도, 언어 설정 제공
 - 한국어, 영어, 일본어 UI 지원
 - PC와 모바일 반응형 UI
+
+## Gemini API key 설정
+
+`GEMINI_FREE_TIER_API_KEYS`에 프리티어 키를 쉼표로 구분해 등록하면 등록된 순서대로 호출합니다. 한 키가 quota·rate limit·일시적 장애 등으로 실패하면 다음 프리티어 키를 시도하고, 프리티어 키가 모두 실패했을 때만 `GEMINI_PAID_API_KEYS`를 사용합니다.
+
+```env
+GEMINI_FREE_TIER_API_KEYS=gemini_free_key_one,gemini_free_key_two
+GEMINI_PAID_API_KEYS=gemini_paid_key_one
+GEMINI_MODEL=gemini-2.5-flash-lite
+```
+
+기존 `GEMINI_API_KEYS` 또는 `GEMINI_API_KEY`만 설정된 환경도 새 프리티어 변수가 없으면 프리티어 키로 계속 동작합니다.

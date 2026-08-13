@@ -4,9 +4,12 @@ import { ApiError } from "./_youtube.js";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 const state = globalThis.__commentubeGeminiState ?? {
-  keyIndex: 0
+  freeKeyIndex: 0,
+  paidKeyIndex: 0
 };
 
+state.freeKeyIndex = Number.isInteger(state.freeKeyIndex) ? state.freeKeyIndex : Number(state.keyIndex) || 0;
+state.paidKeyIndex = Number.isInteger(state.paidKeyIndex) ? state.paidKeyIndex : 0;
 globalThis.__commentubeGeminiState = state;
 
 function readLocalEnvValue(name) {
@@ -33,15 +36,25 @@ function readLocalEnvValue(name) {
   return "";
 }
 
-function getGeminiKeys() {
-  const keys = [
-    ...(process.env.GEMINI_API_KEYS || readLocalEnvValue("GEMINI_API_KEYS") || "").split(","),
-    process.env.GEMINI_API_KEY || readLocalEnvValue("GEMINI_API_KEY") || ""
-  ]
+function getGeminiKeys(names) {
+  const keys = names
+    .flatMap((name) => [process.env[name] || readLocalEnvValue(name) || ""])
+    .flatMap((value) => value.split(","))
     .map((key) => key.trim())
     .filter(Boolean);
 
   return [...new Set(keys)];
+}
+
+function getGeminiKeyGroups() {
+  const freeTierKeys = getGeminiKeys(["GEMINI_FREE_TIER_API_KEYS", "GEMINI_FREE_TIER_API_KEY"]);
+  const paidKeys = getGeminiKeys(["GEMINI_PAID_API_KEYS", "GEMINI_PAID_API_KEY"]);
+  const legacyKeys = getGeminiKeys(["GEMINI_API_KEYS", "GEMINI_API_KEY"]);
+
+  return {
+    freeTierKeys: freeTierKeys.length ? freeTierKeys : legacyKeys,
+    paidKeys
+  };
 }
 
 function getGeminiModel() {
@@ -50,7 +63,22 @@ function getGeminiModel() {
 
 function isRetryableGeminiError(payload, status) {
   const code = payload?.error?.status;
-  return status === 429 || status >= 500 || code === "RESOURCE_EXHAUSTED" || code === "UNAVAILABLE";
+  const message = payload?.error?.message || "";
+  return (
+    status === 401 ||
+    status === 403 ||
+    status === 408 ||
+    status === 429 ||
+    status >= 500 ||
+    code === "RESOURCE_EXHAUSTED" ||
+    code === "UNAVAILABLE" ||
+    code === "DEADLINE_EXCEEDED" ||
+    code === "INTERNAL" ||
+    code === "ABORTED" ||
+    /quota|rate.?limit|resource exhausted|temporarily unavailable|overloaded|api key.*(invalid|not valid)|invalid.*api key/i.test(
+      message
+    )
+  );
 }
 
 function parseGeminiJson(payload) {
@@ -79,48 +107,75 @@ function validateProviderPayload(providerName, payload, validate) {
 }
 
 async function generateGeminiStructuredJson({ prompt, schema, temperature }) {
-  const keys = getGeminiKeys();
-  if (!keys.length) {
-    throw new ApiError(500, "Gemini API key가 설정되어 있지 않습니다. GEMINI_API_KEYS를 등록해주세요.");
+  const { freeTierKeys, paidKeys } = getGeminiKeyGroups();
+  const keyGroups = [
+    { keys: freeTierKeys, stateKey: "freeKeyIndex" },
+    { keys: paidKeys, stateKey: "paidKeyIndex" }
+  ];
+
+  if (!freeTierKeys.length && !paidKeys.length) {
+    throw new ApiError(
+      500,
+      "Gemini API key가 설정되어 있지 않습니다. GEMINI_FREE_TIER_API_KEYS 또는 GEMINI_PAID_API_KEYS를 등록해주세요."
+    );
   }
 
   const model = getGeminiModel();
   let lastPayload = null;
+  let lastStatus = 503;
 
-  for (let attempt = 0; attempt < keys.length; attempt += 1) {
-    const index = (state.keyIndex + attempt) % keys.length;
-    const key = keys[index];
-    const response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: prompt }]
-          }
-        ],
-        generationConfig: {
-          temperature,
-          responseMimeType: "application/json",
-          responseJsonSchema: schema
-        }
-      })
-    });
+  for (const { keys, stateKey } of keyGroups) {
+    if (!keys.length) continue;
 
-    const payload = await response.json().catch(() => null);
-    if (response.ok) {
-      state.keyIndex = (index + 1) % keys.length;
-      return parseGeminiJson(payload);
-    }
+    const startIndex = ((state[stateKey] % keys.length) + keys.length) % keys.length;
+    for (let attempt = 0; attempt < keys.length; attempt += 1) {
+      const index = (startIndex + attempt) % keys.length;
+      const key = keys[index];
+      let response;
+      let payload;
 
-    lastPayload = payload;
-    if (!isRetryableGeminiError(payload, response.status)) {
-      throw new ApiError(response.status, payload?.error?.message || "Gemini API 요청에 실패했습니다.", payload);
+      try {
+        response = await fetch(`${GEMINI_BASE}/models/${model}:generateContent?key=${encodeURIComponent(key)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: prompt }]
+              }
+            ],
+            generationConfig: {
+              temperature,
+              responseMimeType: "application/json",
+              responseJsonSchema: schema
+            }
+          })
+        });
+        payload = await response.json().catch(() => null);
+      } catch {
+        state[stateKey] = (index + 1) % keys.length;
+        continue;
+      }
+
+      state[stateKey] = (index + 1) % keys.length;
+      if (response.ok) {
+        return parseGeminiJson(payload);
+      }
+
+      lastPayload = payload;
+      lastStatus = response.status;
+      if (!isRetryableGeminiError(payload, response.status)) {
+        throw new ApiError(response.status, payload?.error?.message || "Gemini API 요청에 실패했습니다.", payload);
+      }
     }
   }
 
-  throw new ApiError(429, "등록된 Gemini API key를 모두 사용할 수 없습니다.", lastPayload);
+  throw new ApiError(
+    lastStatus === 429 ? 429 : 503,
+    "프리티어와 결제용 Gemini API key를 모두 사용할 수 없습니다.",
+    lastPayload
+  );
 }
 
 export async function generateStructuredJson({ prompt, schema, temperature = 0.75, validate = null }) {

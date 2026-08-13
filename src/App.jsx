@@ -88,8 +88,9 @@ const dictionaries = {
     candidateCount: "후보 개수",
     aiComment: "AI 댓글",
     findAiComment: "AI가 쓴 댓글 찾기",
-    aiReveal: "AI 댓글이었습니다",
-    realReveal: "실제 댓글",
+    aiReveal: "AI 댓글이였습니다",
+    realReveal: "진짜 댓글이였습니다",
+    realLabel: "실제 댓글",
     aiRefill: "AI 댓글을 다시 준비하고 있어요.",
     randomDrawTitle: "랜덤 댓글 추첨",
     randomDrawDescription: "댓글을 슬롯머신처럼 돌려 하나를 뽑습니다. 다시 뽑아도 이미 뽑힌 댓글은 제외돼요.",
@@ -223,7 +224,8 @@ const dictionaries = {
     aiComment: "AI comment",
     findAiComment: "Find the AI-written comment",
     aiReveal: "This was the AI comment",
-    realReveal: "Real comment",
+    realReveal: "This was the real comment",
+    realLabel: "Real comment",
     aiRefill: "Preparing more AI comments.",
     randomDrawTitle: "Random Comment Draw",
     randomDrawDescription: "Spin through comments like a slot machine and pick one winner. Picked comments are excluded next time.",
@@ -357,7 +359,8 @@ const dictionaries = {
     aiComment: "AIコメント",
     findAiComment: "AIが書いたコメントを探す",
     aiReveal: "AIコメントでした",
-    realReveal: "実際のコメント",
+    realReveal: "実際のコメントでした",
+    realLabel: "実際のコメント",
     aiRefill: "AIコメントを追加準備しています。",
     randomDrawTitle: "ランダムコメント抽選",
     randomDrawDescription: "コメントをスロットのように回して1つ選びます。選ばれたコメントは次回除外されます。",
@@ -2215,6 +2218,7 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
 function RealCommentArena({ t, video, round, roundIndex, score, selected, result, maskAuthors, onChoose, onNext }) {
   const revealed = Boolean(result);
   const [activeTimestamp, setActiveTimestamp] = useState(null);
+  const selectedComment = round.choices.find((choice) => choice.choiceId === selected);
 
   return (
     <section className={`battle-arena real-arena ${revealed ? "revealed" : ""}`}>
@@ -2255,7 +2259,7 @@ function RealCommentArena({ t, video, round, roundIndex, score, selected, result
       {revealed ? (
         <div className={`result-strip ${result}`}>
           <strong>{result === "correct" ? t.correct : t.wrong}</strong>
-          <span>{result === "correct" ? t.aiReveal : t.aiReveal}</span>
+          <span>{selectedComment?.type === "ai" ? t.aiReveal : t.realReveal}</span>
           <button onClick={onNext}>
             {result === "correct" ? t.nextRound : t.playAgain}
             <ChevronRight size={18} />
@@ -2291,7 +2295,7 @@ function RealCommentChoice({ comment, selected, answer, revealed, maskAuthors, t
         <span>{maskAuthors ? comment.maskedAuthor : comment.author}</span>
         {revealed ? (
           <strong className={isAnswer ? "ai-tag" : "real-tag"}>
-            {isAnswer ? t.aiComment : t.realReveal}
+            {isAnswer ? t.aiComment : t.realLabel}
           </strong>
         ) : null}
       </div>
