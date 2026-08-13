@@ -524,7 +524,7 @@ export default async function handler(req, res) {
     const rounds = buildRealCommentRounds({ comments, aiComments, candidateCount });
 
     if (rounds.length < 6) {
-      throw new ApiError(422, "진짜 댓글 찾기 라운드를 만들 댓글 후보가 부족합니다.");
+      throw new ApiError(422, "AI 댓글 찾기 라운드를 만들 댓글 후보가 부족합니다.");
     }
 
     return sendJson(res, 200, {

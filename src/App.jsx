@@ -83,7 +83,7 @@ const dictionaries = {
     correctCount: "정답",
     battleTitle: "댓글 배틀",
     battleDescription: "둘 중 좋아요 수가 더 높은 댓글을 고르세요. 틀리면 종료됩니다.",
-    realCommentTitle: "진짜 댓글 찾기",
+    realCommentTitle: "AI 댓글 찾기",
     realCommentDescription: "실제 댓글 사이에 숨어 있는 AI 댓글 하나를 찾아보세요.",
     candidateCount: "후보 개수",
     aiComment: "AI 댓글",

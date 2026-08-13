@@ -65,7 +65,7 @@ export default async function handler(req, res) {
         },
         {
           id: "real-comment",
-          title: "진짜 댓글 찾기",
+          title: "AI 댓글 찾기",
           available: commentCount >= 100,
           minimumCommentCount: 100,
           status: commentCount >= 100 ? "플레이 가능" : "댓글 100개 이상 영상부터 플레이 가능"
