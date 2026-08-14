@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Check,
+  Clock,
   ChevronRight,
   Download,
   Eye,
@@ -10,6 +11,7 @@ import {
   Github,
   Globe2,
   Loader2,
+  MessageCircle,
   Play,
   Plus,
   RotateCcw,
@@ -71,9 +73,9 @@ const dictionaries = {
     participatoryContents: "참여형 콘텐츠",
     utilityContents: "간단 도구",
     comingSoon: "추후 공개",
-    startBattle: "댓글 읽고 시작",
+    startBattle: "좋아요 배틀 시작",
     loadingComments: "댓글 후보 수집 중",
-    loadingTitle: "댓글 배틀 준비 중",
+    loadingTitle: "좋아요 배틀 준비 중",
     loadingCopy: "좋아요가 있는 댓글을 모으고, 비슷한 점수대의 대결 후보를 만들고 있어요.",
     aiLoadingTitle: "AI 댓글 섞는 중",
     aiLoadingCopy: "실제 댓글의 말투와 분위기를 읽고, 자연스러운 가짜 댓글 묶음을 만들고 있어요.",
@@ -81,10 +83,41 @@ const dictionaries = {
     aiLoadingComments: "AI 댓글 생성 중",
     preparingBattle: "라운드 구성",
     correctCount: "정답",
-    battleTitle: "댓글 배틀",
+    battleTitle: "좋아요 배틀",
     battleDescription: "둘 중 좋아요 수가 더 높은 댓글을 고르세요. 틀리면 종료됩니다.",
+    replyBattleTitle: "대댓글 배틀",
+    replyBattleDescription: "둘 중 대댓글이 더 많을 것 같은 댓글을 고르세요. 선택 후 대댓글 목록을 확인할 수 있어요.",
+    replyBattleStart: "대댓글 배틀 시작",
+    replyBattleLoadingTitle: "대댓글 배틀 준비 중",
+    replyBattleLoadingCopy: "대댓글 수가 비슷한 댓글 후보를 모으고 있어요.",
+    replyBattlePreparing: "대댓글 라운드 구성",
+    replyBattleLoadingComments: "대댓글 후보 수집 중",
+    replyCountLabel: "대댓글",
+    replyResultLabel: "대댓글 결과",
+    replyResultHelp: "두 댓글에 달린 대댓글을 확인해보세요.",
+    replyLoading: "대댓글 불러오는 중",
+    replyError: "대댓글을 불러오지 못했어요.",
+    replyEmpty: "표시할 대댓글이 없어요.",
+    replyWinner: "대댓글이 더 많은 댓글",
     realCommentTitle: "AI 댓글 찾기",
     realCommentDescription: "실제 댓글 사이에 숨어 있는 AI 댓글 하나를 찾아보세요.",
+    timelineTitle: "타임라인 맞추기",
+    timelineDescription: "타임스탬프를 가린 댓글이 영상의 어느 순간인지 맞혀보세요.",
+    timelineStart: "게임 시작",
+    timelineLoadingTitle: "타임라인 맞추기 준비 중",
+    timelineLoadingCopy: "타임스탬프가 있는 댓글을 모으고 있어요.",
+    timelinePreparing: "타임라인 구성",
+    timelineLoadingComments: "타임스탬프 댓글 수집 중",
+    timelineBlocked: "댓글 50개 이상 영상부터 플레이할 수 있어요.",
+    timelineCommentLabel: "타임스탬프를 가린 댓글",
+    timelineVideoLabel: "영상을 보며 확인하기",
+    timelineGuessHelp: "작은 범위를 드래그해 댓글 시점을 포함시켜 보세요.",
+    timelineRangeLabel: "예상 범위",
+    timelineCheck: "정답 확인",
+    timelineCorrectMessage: "정답 범위 안에 들어왔어요!",
+    timelineWrongMessage: "실제 시점은 이곳이었어요.",
+    timelineAnswer: "정답 시점",
+    timelineNext: "다음 댓글",
     candidateCount: "후보 개수",
     aiComment: "AI 댓글",
     findAiComment: "AI가 쓴 댓글 찾기",
@@ -206,9 +239,9 @@ const dictionaries = {
     participatoryContents: "Interactive content",
     utilityContents: "Simple tools",
     comingSoon: "Coming soon",
-    startBattle: "Load comments",
+    startBattle: "Start Like Battle",
     loadingComments: "Collecting comment candidates",
-    loadingTitle: "Preparing Comment Battle",
+    loadingTitle: "Preparing Like Battle",
     loadingCopy: "Collecting liked comments and matching close battle candidates.",
     aiLoadingTitle: "Mixing AI comments",
     aiLoadingCopy: "Reading the tone of real comments and creating a natural batch of fake comments.",
@@ -216,10 +249,41 @@ const dictionaries = {
     aiLoadingComments: "Generating AI comments",
     preparingBattle: "Building rounds",
     correctCount: "Correct",
-    battleTitle: "Comment Battle",
+    battleTitle: "Like Battle",
     battleDescription: "Pick the comment with more likes. One miss ends the run.",
+    replyBattleTitle: "Reply Battle",
+    replyBattleDescription: "Pick the comment you think has more replies. The reply lists appear after you choose.",
+    replyBattleStart: "Start Reply Battle",
+    replyBattleLoadingTitle: "Preparing Reply Battle",
+    replyBattleLoadingCopy: "Collecting comment pairs with close reply counts.",
+    replyBattlePreparing: "Building reply rounds",
+    replyBattleLoadingComments: "Collecting reply candidates",
+    replyCountLabel: "Replies",
+    replyResultLabel: "Reply results",
+    replyResultHelp: "See the replies attached to both comments.",
+    replyLoading: "Loading replies",
+    replyError: "Replies could not be loaded.",
+    replyEmpty: "No replies to show.",
+    replyWinner: "Comment with more replies",
     realCommentTitle: "Find the Real Comment",
     realCommentDescription: "Find the one AI comment hiding among real viewer comments.",
+    timelineTitle: "Timeline Match",
+    timelineDescription: "Guess when the comment's hidden timestamp appears in the video.",
+    timelineStart: "Play timeline",
+    timelineLoadingTitle: "Preparing Timeline Match",
+    timelineLoadingCopy: "Collecting comments with timestamps.",
+    timelinePreparing: "Building timeline",
+    timelineLoadingComments: "Collecting timestamp comments",
+    timelineBlocked: "Playable from videos with 50+ comments.",
+    timelineCommentLabel: "Comment with hidden timestamp",
+    timelineVideoLabel: "Watch the video to check",
+    timelineGuessHelp: "Drag the small range to cover when you think the comment appears.",
+    timelineRangeLabel: "Your range",
+    timelineCheck: "Check answer",
+    timelineCorrectMessage: "The timestamp is inside your range!",
+    timelineWrongMessage: "The actual timestamp was here.",
+    timelineAnswer: "Answer",
+    timelineNext: "Next comment",
     candidateCount: "Choice count",
     aiComment: "AI comment",
     findAiComment: "Find the AI-written comment",
@@ -341,9 +405,9 @@ const dictionaries = {
     participatoryContents: "参加型コンテンツ",
     utilityContents: "シンプルツール",
     comingSoon: "近日公開",
-    startBattle: "コメントを読み込む",
+    startBattle: "いいねバトル開始",
     loadingComments: "コメント候補を収集中",
-    loadingTitle: "コメントバトル準備中",
+    loadingTitle: "いいねバトル準備中",
     loadingCopy: "高評価のあるコメントを集め、近いスコアの対戦候補を作っています。",
     aiLoadingTitle: "AIコメントを混ぜています",
     aiLoadingCopy: "実際のコメントの空気を読み、自然なAIコメントをまとめて作っています。",
@@ -351,10 +415,41 @@ const dictionaries = {
     aiLoadingComments: "AIコメント生成中",
     preparingBattle: "ラウンド生成",
     correctCount: "正解",
-    battleTitle: "コメントバトル",
+    battleTitle: "いいねバトル",
     battleDescription: "高評価が多いコメントを選びます。外すと終了です。",
+    replyBattleTitle: "返信バトル",
+    replyBattleDescription: "返信が多そうなコメントを選びます。選択後に返信一覧を確認できます。",
+    replyBattleStart: "返信バトル開始",
+    replyBattleLoadingTitle: "返信バトル準備中",
+    replyBattleLoadingCopy: "返信数が近いコメント候補を集めています。",
+    replyBattlePreparing: "返信ラウンド生成",
+    replyBattleLoadingComments: "返信候補を収集中",
+    replyCountLabel: "返信",
+    replyResultLabel: "返信結果",
+    replyResultHelp: "2つのコメントに付いた返信を確認しましょう。",
+    replyLoading: "返信を読み込み中",
+    replyError: "返信を読み込めませんでした。",
+    replyEmpty: "表示できる返信がありません。",
+    replyWinner: "返信が多いコメント",
     realCommentTitle: "本物コメント探し",
     realCommentDescription: "実際のコメントに紛れたAIコメントを1つ見つけます。",
+    timelineTitle: "タイムライン当て",
+    timelineDescription: "タイムスタンプを隠したコメントが動画のどの瞬間か当てます。",
+    timelineStart: "ゲーム開始",
+    timelineLoadingTitle: "タイムライン当てを準備中",
+    timelineLoadingCopy: "タイムスタンプ付きコメントを集めています。",
+    timelinePreparing: "タイムライン生成",
+    timelineLoadingComments: "タイムスタンプコメントを収集中",
+    timelineBlocked: "コメント50件以上の動画からプレイできます。",
+    timelineCommentLabel: "タイムスタンプを隠したコメント",
+    timelineVideoLabel: "動画を見て確認",
+    timelineGuessHelp: "小さな範囲をドラッグして、コメントの時点を含めます。",
+    timelineRangeLabel: "予想範囲",
+    timelineCheck: "答えを確認",
+    timelineCorrectMessage: "予想範囲にタイムスタンプが入りました！",
+    timelineWrongMessage: "実際のタイムスタンプはここでした。",
+    timelineAnswer: "正解時点",
+    timelineNext: "次のコメント",
     candidateCount: "候補数",
     aiComment: "AIコメント",
     findAiComment: "AIが書いたコメントを探す",
@@ -458,6 +553,15 @@ function timestampToSeconds(value) {
   if (parts.length === 2) return parts[0] * 60 + parts[1];
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
   return null;
+}
+
+function formatTimelineTime(value) {
+  const total = Math.max(0, Math.round(Number(value) || 0));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (hours) return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
 function splitTimestamps(text = "") {
@@ -582,7 +686,7 @@ function loadRecaptcha(siteKey) {
 }
 
 async function createRecaptchaToken() {
-  if (!RECAPTCHA_SITE_KEY) return "";
+  if (import.meta.env.DEV || !RECAPTCHA_SITE_KEY) return "";
   const grecaptcha = await loadRecaptcha(RECAPTCHA_SITE_KEY);
   if (!grecaptcha) return "";
 
@@ -757,6 +861,10 @@ function App() {
   const [candidateCount, setCandidateCount] = useState(4);
   const [gameType, setGameType] = useState("battle");
   const [loadingMode, setLoadingMode] = useState("battle");
+  const [replyDetails, setReplyDetails] = useState({});
+  const [replyLoading, setReplyLoading] = useState(false);
+  const [replyError, setReplyError] = useState("");
+  const replyRequestRef = useRef(0);
   const [utilityComments, setUtilityComments] = useState([]);
   const [utilityMeta, setUtilityMeta] = useState(null);
   const [drawnIds, setDrawnIds] = useState([]);
@@ -859,6 +967,14 @@ function App() {
     return Boolean(video?.games?.find((game) => game.id === "comment-battle")?.available);
   }, [video]);
 
+  const canReplyBattle = useMemo(() => {
+    return Boolean(video?.games?.find((game) => game.id === "reply-battle")?.available);
+  }, [video]);
+
+  const canTimeline = useMemo(() => {
+    return Boolean(video?.games?.find((game) => game.id === "timeline")?.available);
+  }, [video]);
+
   const canUseUtility = useMemo(() => {
     return Boolean(video?.games?.find((game) => game.id === "comment-tools")?.available);
   }, [video]);
@@ -912,6 +1028,9 @@ function App() {
     setDownloadScopePrompt(null);
     setExportPage(1);
     setExportIncludeReplies(false);
+    setReplyDetails({});
+    setReplyLoading(false);
+    setReplyError("");
     setPhase("idle");
     setPreviewEntering(true);
     setGameType("battle");
@@ -962,6 +1081,40 @@ function App() {
     }
   }
 
+  async function startReplyBattle({ fresh = false, preserveScore = false } = {}) {
+    if (!video || !canReplyBattle) return;
+    replyRequestRef.current += 1;
+    setGameType("reply");
+    setLoadingMode("reply");
+    setLoading(true);
+    setError("");
+    setPhase("loading");
+    setLoadingProgress(2);
+    setCommentsMeta(null);
+    setReplyDetails({});
+    setReplyLoading(false);
+    setReplyError("");
+
+    const endpoint = `/api/reply-battle-rounds?videoId=${encodeURIComponent(video.videoId)}&target=520${fresh ? "&fresh=1" : ""}`;
+
+    try {
+      const payload = await requestJson(endpoint);
+      setLoadingProgress(100);
+      setRounds(payload.rounds || []);
+      setCommentsMeta(payload);
+      setRoundIndex(0);
+      setScore((value) => (preserveScore ? value : 0));
+      setSelected(null);
+      setResult(null);
+      window.setTimeout(() => setPhase("reply"), 450);
+    } catch (err) {
+      setError(err.message || t.apiError);
+      setPhase("idle");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function startRealCommentGame({ fresh = false, preserveScore = false } = {}) {
     if (!video || !canBattle) return;
     setGameType("real");
@@ -985,6 +1138,39 @@ function App() {
       setSelected(null);
       setResult(null);
       window.setTimeout(() => setPhase("real"), 450);
+    } catch (err) {
+      setError(err.message || t.apiError);
+      setPhase("idle");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function startTimelineGame({ fresh = false, preserveScore = false } = {}) {
+    if (!video || !canTimeline) return;
+    setGameType("timeline");
+    setLoadingMode("timeline");
+    setLoading(true);
+    setError("");
+    setPhase("loading");
+    setLoadingProgress(2);
+    setCommentsMeta(null);
+
+    const durationSeconds = Math.max(Number(video.durationSeconds) || 0, 0);
+    const endpoint = `/api/timeline-rounds?videoId=${encodeURIComponent(video.videoId)}&durationSeconds=${durationSeconds}${
+      fresh ? "&fresh=1" : ""
+    }`;
+
+    try {
+      const payload = await requestJson(endpoint);
+      setLoadingProgress(100);
+      setRounds(payload.rounds || []);
+      setCommentsMeta(payload);
+      setRoundIndex(0);
+      setScore((value) => (preserveScore ? value : 0));
+      setSelected(null);
+      setResult(null);
+      window.setTimeout(() => setPhase("timeline"), 450);
     } catch (err) {
       setError(err.message || t.apiError);
       setPhase("idle");
@@ -1098,6 +1284,34 @@ function App() {
     }, revealDelays[revealSpeed]);
   }
 
+  async function chooseReply(side) {
+    if (!currentRound || selected) return;
+    setSelected(side);
+    setReplyLoading(true);
+    setReplyError("");
+
+    const requestId = replyRequestRef.current + 1;
+    replyRequestRef.current = requestId;
+    window.setTimeout(() => {
+      if (replyRequestRef.current !== requestId) return;
+      const isCorrect = side === currentRound.answer;
+      setResult(isCorrect ? "correct" : "wrong");
+      if (isCorrect) setScore((value) => value + 1);
+    }, revealDelays[revealSpeed]);
+    const endpoint = `/api/reply-battle-replies?videoId=${encodeURIComponent(video.videoId)}&commentIds=${encodeURIComponent(
+      `${currentRound.left.id},${currentRound.right.id}`
+    )}`;
+
+    try {
+      const payload = await requestJson(endpoint);
+      if (replyRequestRef.current === requestId) setReplyDetails(payload.replies || {});
+    } catch {
+      if (replyRequestRef.current === requestId) setReplyError(t.replyError);
+    } finally {
+      if (replyRequestRef.current === requestId) setReplyLoading(false);
+    }
+  }
+
   function chooseReal(choiceId) {
     if (!currentRound || selected) return;
     setSelected(choiceId);
@@ -1107,6 +1321,15 @@ function App() {
       setResult(isCorrect ? "correct" : "wrong");
       if (isCorrect) setScore((value) => value + 1);
     }, revealDelays[revealSpeed]);
+  }
+
+  function chooseTimeline(rangeStart) {
+    if (!currentRound || result) return;
+    const start = Number(rangeStart) || 0;
+    const end = start + Number(currentRound.guessWindowSeconds || 0);
+    const isCorrect = currentRound.timestampSeconds >= start && currentRound.timestampSeconds <= end;
+    setResult(isCorrect ? "correct" : "wrong");
+    if (isCorrect) setScore((value) => value + 1);
   }
 
   function nextRound() {
@@ -1133,10 +1356,43 @@ function App() {
     setResult(null);
   }
 
+  async function nextTimelineRound() {
+    if (roundIndex >= rounds.length - 1) {
+      await startTimelineGame({ fresh: true, preserveScore: true });
+      return;
+    }
+    setRoundIndex((value) => value + 1);
+    setSelected(null);
+    setResult(null);
+  }
+
+  async function nextReplyRound() {
+    if (result === "wrong") {
+      setPhase("gameover");
+      return;
+    }
+    if (roundIndex >= rounds.length - 1) {
+      await startReplyBattle({ fresh: true, preserveScore: true });
+      return;
+    }
+    replyRequestRef.current += 1;
+    setRoundIndex((value) => value + 1);
+    setSelected(null);
+    setResult(null);
+    setReplyDetails({});
+    setReplyLoading(false);
+    setReplyError("");
+  }
+
   function resetGame() {
+    if (gameType === "timeline") {
+      startTimelineGame({ fresh: true });
+      return;
+    }
     if (gameType === "real") {
       const unusedRounds = rounds.slice(roundIndex + 1);
       if (unusedRounds.length) {
+        replyRequestRef.current += 1;
         setRounds(unusedRounds);
         setRoundIndex(0);
         setScore(0);
@@ -1149,6 +1405,24 @@ function App() {
       startRealCommentGame({ fresh: true });
       return;
     }
+    if (gameType === "reply") {
+      const unusedRounds = rounds.slice(roundIndex + 1);
+      if (unusedRounds.length) {
+        setRounds(unusedRounds);
+        setRoundIndex(0);
+        setScore(0);
+        setSelected(null);
+        setResult(null);
+        setReplyDetails({});
+        setReplyLoading(false);
+        setReplyError("");
+        setPhase("reply");
+        return;
+      }
+
+      startReplyBattle({ fresh: true });
+      return;
+    }
     setRounds((value) => shuffleRounds(value));
     setRoundIndex(0);
     setScore(0);
@@ -1158,6 +1432,7 @@ function App() {
   }
 
   function goHome() {
+    replyRequestRef.current += 1;
     setPhase("idle");
     setRounds([]);
     setUtilityComments([]);
@@ -1172,6 +1447,9 @@ function App() {
     setDownloadScopePrompt(null);
     setExportPage(1);
     setExportIncludeReplies(false);
+    setReplyDetails({});
+    setReplyLoading(false);
+    setReplyError("");
     setRoundIndex(0);
     setScore(0);
     setSelected(null);
@@ -1197,7 +1475,16 @@ function App() {
       closeLegalPage();
       return;
     }
-    if (phase === "battle" || phase === "real" || phase === "draw" || phase === "export" || phase === "gameover" || phase === "loading") {
+    if (
+      phase === "battle" ||
+      phase === "reply" ||
+      phase === "real" ||
+      phase === "timeline" ||
+      phase === "draw" ||
+      phase === "export" ||
+      phase === "gameover" ||
+      phase === "loading"
+    ) {
       setLeaveConfirmOpen(true);
       return;
     }
@@ -1211,11 +1498,23 @@ function App() {
       kicker: t.preparingBattle,
       label: t.loadingComments
     },
+    reply: {
+      title: t.replyBattleLoadingTitle,
+      copy: t.replyBattleLoadingCopy,
+      kicker: t.replyBattlePreparing,
+      label: t.replyBattleLoadingComments
+    },
     real: {
       title: t.aiLoadingTitle,
       copy: t.aiLoadingCopy,
       kicker: t.aiPreparing,
       label: t.aiLoadingComments
+    },
+    timeline: {
+      title: t.timelineLoadingTitle,
+      copy: t.timelineLoadingCopy,
+      kicker: t.timelinePreparing,
+      label: t.timelineLoadingComments
     },
     draw: {
       title: t.drawLoadingTitle,
@@ -1386,12 +1685,42 @@ function App() {
     );
   }
 
-  if ((phase === "battle" || phase === "real" || phase === "gameover") && currentRound) {
+  if ((phase === "battle" || phase === "reply" || phase === "real" || phase === "timeline" || phase === "gameover") && currentRound) {
     return (
-      <main className="app-shell game-shell">
+      <main className={`app-shell game-shell ${phase === "timeline" ? "timeline-game-shell" : ""}`}>
         <div className="speed-lines" />
         <Topbar t={t} onOpenSettings={() => setSettingsOpen(true)} onBrandClick={handleBrandClick} compact />
-        {phase === "real" || gameType === "real" ? (
+        {phase === "timeline" || gameType === "timeline" ? (
+          <TimelineArena
+            t={t}
+            video={video}
+            round={currentRound}
+            roundIndex={roundIndex}
+            total={rounds.length}
+            score={score}
+            result={result}
+            maskAuthors={maskAuthors}
+            onCheck={chooseTimeline}
+            onNext={nextTimelineRound}
+          />
+        ) : phase === "reply" || gameType === "reply" ? (
+          <ReplyBattleArena
+            t={t}
+            video={video}
+            round={currentRound}
+            roundIndex={roundIndex}
+            total={rounds.length}
+            score={score}
+            selected={selected}
+            result={result}
+            maskAuthors={maskAuthors}
+            replyDetails={replyDetails}
+            replyLoading={replyLoading}
+            replyError={replyError}
+            onChoose={chooseReply}
+            onNext={nextReplyRound}
+          />
+        ) : phase === "real" || gameType === "real" ? (
           <RealCommentArena
             t={t}
             video={video}
@@ -1529,6 +1858,20 @@ function App() {
                 </button>
               </article>
 
+              <article className={`game-tile reply ${canReplyBattle ? "" : "locked"}`}>
+                <div>
+                  <div className="tile-icon">
+                    <MessageCircle size={22} />
+                  </div>
+                  <h3>{t.replyBattleTitle}</h3>
+                  <p>{canReplyBattle ? t.replyBattleDescription : t.minimumBlocked}</p>
+                </div>
+                <button onClick={() => startReplyBattle()} disabled={!canReplyBattle || loading}>
+                  {loading && loadingMode === "reply" ? <Loader2 className="spin" size={18} /> : <MessageCircle size={18} />}
+                  {loading && loadingMode === "reply" ? t.replyBattleLoadingComments : t.replyBattleStart}
+                </button>
+              </article>
+
               <article className={`game-tile real ${canBattle ? "" : "locked"}`}>
                 <div>
                   <div className="tile-icon muted">
@@ -1541,6 +1884,20 @@ function App() {
                 <button onClick={() => startRealCommentGame()} disabled={!canBattle || loading}>
                   {loading && loadingMode === "real" ? <Loader2 className="spin" size={18} /> : <Eye size={18} />}
                   {loading && loadingMode === "real" ? t.aiLoadingComments : t.findAiComment}
+                </button>
+              </article>
+
+              <article className={`game-tile timeline ${canTimeline ? "" : "locked"}`}>
+                <div>
+                  <div className="tile-icon">
+                    <Clock size={22} />
+                  </div>
+                  <h3>{t.timelineTitle}</h3>
+                  <p>{canTimeline ? t.timelineDescription : t.timelineBlocked}</p>
+                </div>
+                <button onClick={() => startTimelineGame()} disabled={!canTimeline || loading}>
+                  {loading && loadingMode === "timeline" ? <Loader2 className="spin" size={18} /> : <Clock size={18} />}
+                  {loading && loadingMode === "timeline" ? t.timelineLoadingComments : t.timelineStart}
                 </button>
               </article>
             </div>
@@ -2148,6 +2505,182 @@ function CommentExportTool({
   );
 }
 
+function TimelineArena({ t, video, round, roundIndex, total, score, result, maskAuthors, onCheck, onNext }) {
+  const durationSeconds = Math.max(Number(round.durationSeconds) || Number(video.durationSeconds) || 60, 60);
+  const windowSeconds = Math.min(Math.max(Number(round.guessWindowSeconds) || 8, 1), durationSeconds);
+  const [rangeStart, setRangeStart] = useState(Math.max(0, Math.round((durationSeconds - windowSeconds) / 2)));
+  const revealed = Boolean(result);
+
+  useEffect(() => {
+    setRangeStart(Math.max(0, Math.round((durationSeconds - windowSeconds) / 2)));
+  }, [round.id, durationSeconds, windowSeconds]);
+
+  return (
+    <section className={`battle-arena timeline-arena ${revealed ? "revealed" : ""}`}>
+      <div className="battle-header">
+        <div>
+          <span className="round-chip">
+            {t.round} {roundIndex + 1}/{total} · {t.correctCount} {score}
+          </span>
+          <h2>{t.timelineTitle}</h2>
+        </div>
+      </div>
+
+      <article className="timeline-comment-card">
+        <span>{t.timelineCommentLabel}</span>
+        <p>{round.text}</p>
+        <strong>{maskAuthors ? round.maskedAuthor : round.author}</strong>
+      </article>
+
+      <section className="timeline-video">
+        <div className="timeline-section-label">
+          <Clock size={17} />
+          <span>{t.timelineVideoLabel}</span>
+        </div>
+        <iframe
+          title={video.title}
+          src={`https://www.youtube.com/embed/${video.videoId}?rel=0&playsinline=1`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </section>
+
+      <section className="timeline-guess">
+        <div className="timeline-guess-head">
+          <div>
+            <span>{t.timelineRangeLabel}</span>
+            <p>{t.timelineGuessHelp}</p>
+          </div>
+          <strong>
+            {formatTimelineTime(rangeStart)} – {formatTimelineTime(rangeStart + windowSeconds)}
+          </strong>
+        </div>
+        <TimelineTrack
+          durationSeconds={durationSeconds}
+          windowSeconds={windowSeconds}
+          rangeStart={rangeStart}
+          setRangeStart={setRangeStart}
+          answerSeconds={round.timestampSeconds}
+          result={result}
+          revealed={revealed}
+        />
+        <button className="timeline-check" type="button" onClick={() => onCheck(rangeStart)} disabled={revealed}>
+          <Check size={18} />
+          {t.timelineCheck}
+        </button>
+      </section>
+
+      {revealed ? (
+        <div className={`result-strip ${result}`}>
+          <strong>{result === "correct" ? t.correct : t.wrong}</strong>
+          <span>
+            {result === "correct" ? t.timelineCorrectMessage : t.timelineWrongMessage} · {t.timelineAnswer}{" "}
+            {formatTimelineTime(round.timestampSeconds)}
+          </span>
+          <button onClick={onNext}>
+            {t.timelineNext}
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function TimelineTrack({ durationSeconds, windowSeconds, rangeStart, setRangeStart, answerSeconds, result, revealed }) {
+  const trackRef = useRef(null);
+  const dragRef = useRef(null);
+  const maxStart = Math.max(durationSeconds - windowSeconds, 0);
+  const windowWidth = (windowSeconds / durationSeconds) * 100;
+  const windowLeft = (rangeStart / durationSeconds) * 100;
+
+  function updateRange(clientX, offset = 0) {
+    const track = trackRef.current;
+    if (!track) return;
+    const rect = track.getBoundingClientRect();
+    const position = Math.min(Math.max(clientX - rect.left - offset, 0), rect.width);
+    const nextStart = Math.min(Math.max((position / rect.width) * durationSeconds, 0), maxStart);
+    setRangeStart(Math.round(nextStart));
+  }
+
+  function handlePointerDown(event) {
+    if (revealed) return;
+    event.preventDefault();
+    const target = event.target?.closest?.(".timeline-window");
+    const windowRect = target?.getBoundingClientRect();
+    const offset = windowRect ? event.clientX - windowRect.left : ((windowSeconds / durationSeconds) * event.currentTarget.getBoundingClientRect().width) / 2;
+    dragRef.current = { pointerId: event.pointerId, offset };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    updateRange(event.clientX, offset);
+  }
+
+  function handlePointerMove(event) {
+    if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
+    updateRange(event.clientX, dragRef.current.offset);
+  }
+
+  function handlePointerUp(event) {
+    if (!dragRef.current || dragRef.current.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+  }
+
+  function handleKeyDown(event) {
+    if (revealed) return;
+    const step = event.shiftKey ? 10 : 5;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setRangeStart((value) => Math.max(0, value - step));
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setRangeStart((value) => Math.min(maxStart, value + step));
+    }
+  }
+
+  return (
+    <div className="timeline-scroll">
+      <div
+        ref={trackRef}
+        className={`timeline-track ${revealed ? "revealed" : ""}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        <div className="timeline-ticks" aria-hidden="true">
+          {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
+            <span key={ratio} style={{ left: `${ratio * 100}%` }}>
+              {formatTimelineTime(durationSeconds * ratio)}
+            </span>
+          ))}
+        </div>
+        {revealed ? (
+          <div
+            className="timeline-answer-marker"
+            style={{ left: `${Math.min(Math.max(answerSeconds / durationSeconds, 0), 1) * 100}%` }}
+            title={formatTimelineTime(answerSeconds)}
+          >
+            <span>{formatTimelineTime(answerSeconds)}</span>
+          </div>
+        ) : null}
+        <div
+          className={`timeline-window ${result === "correct" ? "correct" : result === "wrong" ? "wrong" : ""}`}
+          role="slider"
+          tabIndex={revealed ? -1 : 0}
+          aria-valuemin={0}
+          aria-valuemax={Math.round(maxStart)}
+          aria-valuenow={Math.round(rangeStart)}
+          onKeyDown={handleKeyDown}
+          style={{ left: `${windowLeft}%`, width: `${windowWidth}%` }}
+        >
+          <span />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BattleArena({ t, video, round, roundIndex, total, score, selected, result, maskAuthors, onChoose, onNext }) {
   const revealed = Boolean(result);
   const winner = round.answer;
@@ -2212,6 +2745,151 @@ function BattleArena({ t, video, round, roundIndex, total, score, selected, resu
         </div>
       ) : null}
     </section>
+  );
+}
+
+function ReplyBattleArena({
+  t,
+  video,
+  round,
+  roundIndex,
+  total,
+  score,
+  selected,
+  result,
+  maskAuthors,
+  replyDetails,
+  replyLoading,
+  replyError,
+  onChoose,
+  onNext
+}) {
+  const revealed = Boolean(result);
+  const winner = round.answer;
+  const [activeTimestamp, setActiveTimestamp] = useState(null);
+  const leftReplies = replyDetails?.[round.left.id] || [];
+  const rightReplies = replyDetails?.[round.right.id] || [];
+  const winningComment = winner === "left" ? round.left : round.right;
+
+  return (
+    <section className={`battle-arena reply-arena ${revealed ? "revealed" : ""}`}>
+      <TimestampViewer video={video} timestamp={activeTimestamp} onClose={() => setActiveTimestamp(null)} />
+      <div className="battle-header">
+        <div>
+          <span className="round-chip">
+            {t.round} {roundIndex + 1}/{total} · {t.correctCount} {score}
+          </span>
+          <h2>{t.replyBattleTitle}</h2>
+        </div>
+      </div>
+
+      <div className="thumbnail-strip">
+        <img src={video.thumbnail} alt="" />
+        <div>
+          <span>{video.channelTitle}</span>
+          <strong>{video.title}</strong>
+        </div>
+      </div>
+
+      <div className="comment-duel">
+        <CommentChoice
+          side="left"
+          comment={round.left}
+          selected={selected}
+          winner={winner}
+          revealed={revealed}
+          maskAuthors={maskAuthors}
+          scoreValue={round.left.replyCount}
+          scoreLabel={t.replyCountLabel}
+          onChoose={onChoose}
+          onOpenTimestamp={setActiveTimestamp}
+        />
+        <div className="versus" aria-hidden="true">
+          <span>VS</span>
+        </div>
+        <CommentChoice
+          side="right"
+          comment={round.right}
+          selected={selected}
+          winner={winner}
+          revealed={revealed}
+          maskAuthors={maskAuthors}
+          scoreValue={round.right.replyCount}
+          scoreLabel={t.replyCountLabel}
+          onChoose={onChoose}
+          onOpenTimestamp={setActiveTimestamp}
+        />
+      </div>
+
+      {revealed ? (
+        <section className="reply-results">
+          <div className="reply-results-head">
+            <div>
+              <span>{t.replyResultLabel}</span>
+              <p>{t.replyResultHelp}</p>
+            </div>
+            {replyLoading ? (
+              <strong className="reply-loading">
+                <Loader2 className="spin" size={16} />
+                {t.replyLoading}
+              </strong>
+            ) : null}
+          </div>
+          {replyError ? (
+            <div className="reply-error">{replyError}</div>
+          ) : (
+            <div className="reply-columns">
+              <ReplyList t={t} label="A" comment={round.left} replies={leftReplies} maskAuthors={maskAuthors} />
+              <ReplyList t={t} label="B" comment={round.right} replies={rightReplies} maskAuthors={maskAuthors} />
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {revealed ? (
+        <div className={`result-strip ${result}`}>
+          <strong>{result === "correct" ? t.correct : t.wrong}</strong>
+          <span>
+            {t.replyWinner}: {winner === "left" ? "A" : "B"} · {t.replyCountLabel} {number(winningComment.replyCount)}
+          </span>
+          <button onClick={onNext}>
+            {result === "correct" ? t.nextRound : t.playAgain}
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function ReplyList({ t, label, comment, replies, maskAuthors }) {
+  return (
+    <article className="reply-list">
+      <div className="reply-list-head">
+        <div>
+          <strong>{label}</strong>
+          <span>{maskAuthors ? comment.maskedAuthor : comment.author}</span>
+        </div>
+        <b>
+          {t.replyCountLabel} {number(comment.replyCount)}
+        </b>
+      </div>
+      {replies.length ? (
+        <ol>
+          {replies.map((reply) => (
+            <li key={reply.id}>
+              <div className="reply-item-meta">
+                <span>{maskAuthors ? reply.maskedAuthor : reply.author}</span>
+                <span>{t.likes} {number(reply.likeCount)}</span>
+              </div>
+              <p>{reply.text}</p>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="reply-empty">{t.replyEmpty}</p>
+      )}
+    </article>
   );
 }
 
@@ -2340,7 +3018,18 @@ function TimestampViewer({ video, timestamp, onClose }) {
   );
 }
 
-function CommentChoice({ side, comment, selected, winner, revealed, maskAuthors, onChoose, onOpenTimestamp }) {
+function CommentChoice({
+  side,
+  comment,
+  selected,
+  winner,
+  revealed,
+  maskAuthors,
+  scoreValue = comment.likeCount,
+  scoreLabel = "",
+  onChoose,
+  onOpenTimestamp
+}) {
   const isSelected = selected === side;
   const isWinner = winner === side;
   return (
@@ -2365,7 +3054,7 @@ function CommentChoice({ side, comment, selected, winner, revealed, maskAuthors,
         {revealed ? (
           <strong>
             <Check size={17} />
-            {number(comment.likeCount)}
+            {scoreLabel ? `${scoreLabel} ${number(scoreValue)}` : number(scoreValue)}
           </strong>
         ) : null}
       </div>

@@ -122,7 +122,7 @@ export async function fetchAllCommentsForVideo(videoId, target = 10000) {
   return [...byId.values()].slice(0, maxCount);
 }
 
-async function fetchRepliesForComment(parent) {
+export async function fetchRepliesForComment(parent) {
   const replies = [];
   let pageToken = "";
   let safety = 0;
@@ -268,7 +268,7 @@ export default async function handler(req, res) {
 
     const rounds = buildBattleRounds(comments);
     if (rounds.length < 8) {
-      throw new ApiError(422, "좋아요가 있는 댓글 후보가 부족해서 댓글 배틀을 만들 수 없습니다.");
+      throw new ApiError(422, "좋아요가 있는 댓글 후보가 부족해서 좋아요 배틀을 만들 수 없습니다.");
     }
 
     const payload = {

@@ -58,7 +58,14 @@ export default async function handler(req, res) {
       games: [
         {
           id: "comment-battle",
-          title: "댓글 배틀",
+          title: "좋아요 배틀",
+          available: commentCount >= 100,
+          minimumCommentCount: 100,
+          status: commentCount >= 100 ? "플레이 가능" : "댓글 100개 이상 영상부터 플레이 가능"
+        },
+        {
+          id: "reply-battle",
+          title: "대댓글 배틀",
           available: commentCount >= 100,
           minimumCommentCount: 100,
           status: commentCount >= 100 ? "플레이 가능" : "댓글 100개 이상 영상부터 플레이 가능"
@@ -69,6 +76,13 @@ export default async function handler(req, res) {
           available: commentCount >= 100,
           minimumCommentCount: 100,
           status: commentCount >= 100 ? "플레이 가능" : "댓글 100개 이상 영상부터 플레이 가능"
+        },
+        {
+          id: "timeline",
+          title: "타임라인 맞추기",
+          available: commentCount >= 50,
+          minimumCommentCount: 50,
+          status: commentCount >= 50 ? "플레이 가능" : "댓글 50개 이상 영상부터 플레이 가능"
         },
         {
           id: "comment-tools",

@@ -32,6 +32,14 @@ function getRecaptchaSecret() {
   return process.env.RECAPTCHA_SECRET_KEY || readLocalEnvValue("RECAPTCHA_SECRET_KEY") || "";
 }
 
+function shouldBypassLocalRecaptcha() {
+  const vercelEnv = process.env.VERCEL_ENV || "";
+  const isLocalEnvironment =
+    vercelEnv === "development" || (!vercelEnv && process.env.NODE_ENV !== "production");
+  const bypass = process.env.RECAPTCHA_BYPASS_LOCAL || readLocalEnvValue("RECAPTCHA_BYPASS_LOCAL") || "";
+  return isLocalEnvironment && bypass.toLowerCase() === "true";
+}
+
 function getMinScore() {
   const value = Number(process.env.RECAPTCHA_MIN_SCORE || readLocalEnvValue("RECAPTCHA_MIN_SCORE") || DEFAULT_MIN_SCORE);
   if (!Number.isFinite(value)) return DEFAULT_MIN_SCORE;
@@ -45,6 +53,8 @@ function getRemoteIp(req) {
 }
 
 export async function verifyRecaptcha(req, expectedAction) {
+  if (shouldBypassLocalRecaptcha()) return { skipped: true, local: true };
+
   const secret = getRecaptchaSecret();
   if (!secret) return { skipped: true };
 
